@@ -1,6 +1,5 @@
 <html> 
 <head> 
-
 <!-- X3DOM inclusions -->
 <script type='text/javascript' 
         src='http://www.x3dom.org/download/x3dom.js'>
@@ -9,16 +8,27 @@
       type='text/css' 
       href='http://www.x3dom.org/download/x3dom.css'>
 </link> 
-
 </head> 
 <body>
-
-<x3d width='500px' height='500px'>
+<h1>
+	Dust streams around comet 67P/C-G
+</h1>
+<h3>Prevailing dust-transport directions on 67P/Churyumov-Gerasimenko</h3>
+by Tobias Kramer and Matthias Noack, Astrophysical Journal Letters 2015 (in press)
+<h3>Additional information</h3>
+<ul>
+<li><a href="http://arxiv.org/abs/1505.08041" target="_blank">Homogeneous dust emission and jet structure near active cometary nuclei: the case of 67P/Churyumov-Gerasimenko</a> 
+by Tobias Kramer, Matthias Noack, Daniel Baum, Hans-Christian Hege, Eric J. Heller.
+</li>
+<li>
+<a href="http://quantumdynamics.wordpress.com" target="_blank">quantumdynamics.wordpress.com</a>
+</li>
+</ul>
+<br>
+<x3d width='800px' height='800px'>
   <scene>
-	 <OrthoViewpoint bind='true' centerOfRotation='0,0,0' description='""' fieldOfView='[-10000,-10000,10000,10000]' isActive='false' metadata='X3DMetadataObject' orientation='0,0,0,1' position='0,0,0' zFar='40000' zNear='1' ></OrthoViewpoint>
-	 <NavigationInfo explorationMode='['rotate']'></NavigationInfo>
-	 <Inline url="comet_39996_nooffset.x3d" />
-	 <Inline url="vfield.x3d" />
+	 <OrthoViewpoint bind='true' centerOfRotation='0,0,0' description='""' fieldOfView='[-5000,-5000,5000,5000]' isActive='false' metadata='X3DMetadataObject' orientation='0,0,0,1' position='0,0,10000' zFar='40000' zNear='1' ></OrthoViewpoint>
+    <Inline url="vfield.x3d"> </Inline> 
   </scene>
 </x3d>
 </body>
