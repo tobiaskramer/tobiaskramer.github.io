@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset=utf-8>
+<title>Moon visualization (C) Tobias Kramer 2018</title>
+<style>
+body { margin: 0; }
+canvas { width: 100%; height: 100% }
+#gui {
+	position : absolute;
+	top : 10;
+	left : 10;
+	color : #444499;
+}
+input[type=number]{
+	width: 90px;
+} 
+</style>
+</head>
+<body>
+<script src="three.js-master/build/three.min.js"></script>
+<script src="three.js-master/examples/js/controls/OrthographicTrackballControls.js"></script>
+<script src="three.js-master/examples/js/loaders/PLYLoader.js"></script>
+<script src="three.js-master/examples/js/renderers/Projector.js"></script>
+<script src="three.js-master/src/helpers/AxesHelper.js"></script>
+<div>
+<form id="gui" > 	
+<TABLE>
+<col width="150">
+<col width="50">
+<TR><TD>yyyymmdd.hhmm (UT), put 0 to bypass  </TD><TD><input type="number" id="obsg" name="obsg" min="20180324.1830" max="20180324.1830" value="20180324.1830"></TD></TR> 
+<TR><TD>Sub-solar longitude </TD><TD><input type="number" id="solon" name="solon" min="-180" max="360" value="-86.968" size="5"></TD></TR>
+<TR><TD>Sub-solar latitude  </TD><TD><input type="number" id="solat" name="solat" min="-90" max="90" value="-1.179" size="5"></TD></TR>   		
+<TR><TD>Sub-earth longitude </TD><TD><input type="number" id="ealon" name="ealon" min="-180" max="360" value="1.483" size="5"></TD></TR> 
+<TR><TD>Sub-earth latitude  </TD><TD><input type="number" id="ealat" name="ealat" min="-90" max="90" value="4.107" size="5"></TD></TR> 
+<TR><TD>Position angle      </TD><TD><input type="number" id="posan" name="posan" min="-90" max="90" value="3.377" size="5"></TD></TR> 
+<TR><TD>Camera Exposure     </TD><TD><input type="number" id="camex" name="camex" min="0" max="90" value="5" size="5"></TD></TR> 
+</TABLE>
+</form>
+</div>
+<div id="WebGL-output",style="heigh:100px;"></div>
+<script>
+var camera, scene, renderer, controls, globalObject;
+var light;
+var clock = new THREE.Clock(), delta = 0;
+
+var objects = [];
+var cameravector = new THREE.Vector3();
+
+var SL,SB,EL,EB,PA;
+	
+init();
+animate();
+
+function init() {				
+	scene = new THREE.Scene();
+
+	var solat = document.getElementById( "solat" ).value/180.0*Math.PI;
+	var solon = document.getElementById( "solon" ).value/180.0*Math.PI;
+	var ealat = document.getElementById( "ealat" ).value/180.0*Math.PI;
+	var ealon = document.getElementById( "ealon" ).value/180.0*Math.PI;
+	var posan = document.getElementById( "posan" ).value/180.0*Math.PI;
+	var camex = document.getElementById( "camex" ).value;
+	//camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 5000 );
+				
+	camera = new THREE.OrthographicCamera(-2000*window.innerWidth / window.innerHeight,2000*window.innerWidth / window.innerHeight, 2000,-2000, 1, 5000 );
+	camera.up.set(Math.sin(posan),Math.cos(posan),0);		
+				
+	camera.position.z = 2000*Math.cos(-ealon)*Math.cos(ealat);
+	camera.position.x = 2000*Math.sin(-ealon)*Math.cos(ealat);
+	camera.position.y = 2000*Math.sin(ealat);
+				
+	console.log(camera.position);
+					
+	scene.add( camera );
+
+	light = new THREE.DirectionalLight( 0xffffff, camex, 5000 );
+				
+	light.position.z =10*Math.cos(-solon)*Math.cos(solat);
+	light.position.x =10*Math.sin(-solon)*Math.cos(solat);
+	light.position.y =10*Math.sin(solat);
+
+	console.log(light.position);
+				
+	light.castShadow = true; 
+	scene.add( light );
+	light.shadow.mapSize.width = 1024;  // default
+	light.shadow.mapSize.height = 1024; // default
+	light.shadow.camera.near = 1;   // default
+	light.shadow.camera.far  = 4000;   // default
+				
+	var manager = new THREE.LoadingManager();
+	manager.onProgress = function ( item, loaded, total ) {
+		console.log( item, loaded, total );
+
+	};
+	// model
+	var onProgress = function ( xhr ) {
+		if ( xhr.lengthComputable ) {
+			var percentComplete = xhr.loaded / xhr.total * 100;
+			console.log( Math.round(percentComplete, 2) + '% downloaded' );
+		}
+	};
+
+	var onError = function ( xhr ) {
+	};
+
+	var loader = new THREE.PLYLoader();
+				
+	loader.load( 'moon_1142640_topo.ply', function ( geometry ) {
+		geometry.computeVertexNormals();
+		//geometry.computeFlatVertexNormals();
+		var material = new THREE.MeshLambertMaterial({color: 0xffffff});
+		material.vertexColors = THREE.VertexColors;
+		var mesh = new THREE.Mesh( geometry, material );
+		material.vertexColors = THREE.VertexColors;
+		material.side = THREE.DoubleSide;
+		mesh.position.y = 0.0;
+		mesh.position.z = 0.0;
+		mesh.rotation.x = 0.0;
+		mesh.scale.multiplyScalar( 1.0 );
+		mesh.castShadow = true;
+		mesh.receiveShadow = true;
+		scene.add( mesh );
+	} );
+
+	var axesHelper = new THREE.AxesHelper( 5000 );
+	scene.add( axesHelper );
+
+	renderer = new THREE.WebGLRenderer();
+	renderer.setPixelRatio( window.devicePixelRatio );
+	renderer.setSize( window.innerWidth, window.innerHeight );
+	document.getElementById("WebGL-output").appendChild(renderer.domElement);
+
+	//window.addEventListener( 'resize', onWindowResize, false );
+				
+	// controls
+	controls = new THREE.OrthographicTrackballControls(camera,renderer.domElement);
+	controls.rotateSpeed = 1.0;
+	controls.zoomSpeed = 1.2;
+	controls.panSpeed = 0.8;
+
+	controls.noZoom = false;
+	controls.noPan = true;
+
+	controls.staticMoving = true;
+	controls.dynamicDampingFactor = 0.3;
+
+	controls.addEventListener( 'change', render );
+				
+	window.addEventListener('keydown', function(event) {
+		if(event.keyCode == 13) { // x pressed
+			console.log('enter');
+			
+			var obsg=document.getElementById( "obsg" ).value;
+			
+			if (obsg!=0)
+			{
+				doCalcs(document.getElementById( "obsg" ).value);
+				console.log('SL:',SL);
+				console.log('SB:',SB);
+				console.log('EL:',EL);
+				console.log('EB:',EB);
+				console.log('PA:',PA);
+				document.getElementById( "solat" ).value=SB;
+				document.getElementById( "solon" ).value=-SL;
+				document.getElementById( "ealat" ).value=EB;
+				document.getElementById( "ealon" ).value=-EL;
+				document.getElementById( "posan" ).value=PA;
+			}
+			
+			var solat = document.getElementById( "solat" ).value/180.0*Math.PI;
+			var solon = document.getElementById( "solon" ).value/180.0*Math.PI;
+			var ealat = document.getElementById( "ealat" ).value/180.0*Math.PI;
+			var ealon = document.getElementById( "ealon" ).value/180.0*Math.PI;
+			var posan = document.getElementById( "posan" ).value/180.0*Math.PI;
+			var camex = document.getElementById( "camex" ).value;
+			light.position.z =10*Math.cos(-solon)*Math.cos(solat);
+			light.position.x =10*Math.sin(-solon)*Math.cos(solat);
+			light.position.y =10*Math.sin(solat);
+			light.intensity=camex;
+						
+			camera.up.set(Math.sin(posan),Math.cos(posan),0);		
+				
+			camera.position.z = 2000*Math.cos(-ealon)*Math.cos(ealat);
+			camera.position.x = 2000*Math.sin(-ealon)*Math.cos(ealat);
+			camera.position.y = 2000*Math.sin(ealat);
+		}
+	})
+				
+	var cratername=["Blackett N","Abbe K","Dembowski","Longomontanus D","Biela A","Rayleigh C","Becvar T","Seares B","Reinhold B","Kirchhoff E","Backlund P","Riemann B","Jeans G","Numerov G","Vogel","Jansen R","Popov W","Lyot M","Kinau D","Becvar X","Zernike Z","Tikhomirov T","Kepinski W","Alden E","Stormer Y","Wilsing U","Bolyai Q","Gagarin T","Andel M","Paschen U","Nusl E","Mills K","Montanari D","Deluc G","Sacrobosco D","Fracastorius D","Bolyai K","Pikel'ner G","Poincare Q","Kramers S","Hommel D","Webb J","Holetschek Z","Chauvenet E","Perel'man E","Rocca F","Heaviside C","Lovell F","Bailly D","Lemaitre C","Mutus R","Bingham H","Cysatus C","Behaim S","Romer V","Mineur V","Helmert","Koch U","Ball G","Crommelin X","Bernoulli E","Schorr B","Arminski","Catalan","Rost M","Gamow Y","Slipher S","Nother V","Furnerius J","Koval'skiy B","Ritz B","Firsov T","Guillaume D","Dreyer J","Gagarin Z","Chebyshev C","Kurchatov T","Wiechert A","Dante Y","Debye Q","Onizuka","Biela C","Fizeau Q","Gerard G","Atlas P","Janssen J","Proclus","Viviani","Champollion A","Geminus Z","Cassegrain B","Gregory K","Ostwald Y","Zollner F","Engel'gardt N","Deluc H","Parsons P","Baco E","Berlage R","Byrgius D","Parsons E","Korolev X","Simpelius F","Wolf T","Vlacq G","Drude","Menelaus","Dirichlet E","Barocius J","Macrobius S","Shternberg C","Boussingault K","Romer U","Airy B","Catharina C","Chamberlin H","Virtanen B","Deluc D","Parkhurst D","G. Bond G","Hertzsprung K","Parrot V","Brouwer P","Doppler M","Foster H","Barrow A","Buch C","Kimura","Poisson J","Boguslawsky N","Bouvard D","Pascal F","Desargues M","Becvar Q","Biot B","Racah J","Raimond Q","Rittenhouse","Stein M","Chaplygin Y","H. G. Wells X","Zucchius A","Bridgman E","Hoffmeister Z","Seidel U","Madler","Spencer Jones K","Lindblad Y","Bayer Y","Emden M","Barocius G","Schubert E","La Caille E","Schubert H","Konoplev","Gemma Frisius D","Alpetragius W","Censorinus C","Merrill X","Manzinus B","Kirchhoff F","Street H","Rayet","Freundlich G","Zhukovskiy U","Carrington","Gamow A","Erro D","Xenophanes F","Roche V","Lundmark D","Abel A","Gemma Frisius Y","Clavius D","Lodygin C","Deluc C","Abel D","McMath P","Dufay D","Guillaume B","Artem'ev L","Sommering","Drygalski P","Kearons","Barrow C","Ginzel L","Phocylides F","Borman V","Hirayama S","Baco K","Paschen G","Piazzi C","Idel'son L","Parkhurst B","Marco Polo P","Tannerus","Wohler","Reimarus T","Peirescius G","Moiseev S","Heron","Marci B","Ingalls M","Hayford","Sarton Z","Lubiniezky A","Nicolai P","Hommel Q","Parrot G","Gutenberg E","Mallet A","Daniell","Tikhomirov J","Pentland B","Chappell T","Dziewulski Q","Anderson E","Geiger Y","Marco Polo","Polybius C","Poinsot P","Bondarenko","Bergstrand J","Encke","Hansteen E","Maclaurin L","Vieta T","Azophi A","Fabry X","Drebbel C","Capuanus E","Coriolis M","Valier J","Marinus M","Zach F","Garavito D","Mechnikov F","Lundmark G","Douglass C","Haret C","Heymans D","Comrie V","Faraday C","Hind","Lavoisier A","Montgolfier J","Littrow","Hypatia M","Tsu Chung-Chi","Hirayama M","Grove","Haret Y","Mandel'shtam G","Julius Caesar Q","Proclus R","Longomontanus A","Glazenap S","Abbe M","Birkhoff Z","Atwood","Nishina T","Gruemberger B","Ptolemaeus E","Simpelius H","Messala D","Janssen D","Purbach H","Pasteur S","Saha E","Von Karman L","Kibal'chich R","Pythagoras D","Nagaoka W","Icarus J","Fleming Y","Maury C","Daedalus U","Darwin H","Taylor B","Debye J","Licetus F","Kibal'chich Q","Harkhebi H","Schlesinger A","Zach D","Cleomedes D","Bragg P","Segers N","Tycho A","Apollonius X","Grimaldi F","Langrenus Y","Zwicky R","Paneth W","Pannekoek A","Janssen T","De Vries N","Lippmann B","Markov U","Schuster N","Mendeleev P","Rumford Q","Zeno D","Scheiner B","Maclaurin A","Doerfel S","Lavoisier H","Icarus H","Lagalla F","Clairaut E","De Vico P","Fraunhofer A","Inghirami G","Kastner S","Boss A","Schroter F","Laue G","Scott E","Malyy G","Helberg H","Ball A","Brianchon T","Mercurius C","Schwabe C","Pascal A","Lagrange K","Lilius B","Sniadecki J","Bayer E","Magelhaens A","Gerard C","Barrow G","Kreiken","Curie P","La Caille K","Zhukovskiy X","Thales E","Nicolai Q","Maskelyne A","Reimarus A","Finsen G","Schomberger A","Seneca B","Kepler","Isidorus B","Ritter","Lebedinskiy K","Zwicky N","Jules Verne C","Young C","Parrot C","Titov","Faraday G","Fernelius A","Lehmann A","Hainzel Y","Horrocks","d'Arrest","Stormer T","Keeler S","Ehrlich Z","Korolev F","Nagaoka U","Chadwick","Mechnikov U","Landau Q","Sabine","Endymion A","Maginus K","Haret","Riedel Z","Deutsch F","Das G","Milne L","Wolf S","Lyot S","Cassegrain H","Reiner","Pannekoek D","Keeler U","Pontanus H","Dobrovol'skiy M","Congreve L","Purbach G","Congreve N","Wiechert U","Steno U","Arnold K","Gauss C","Piccolomini J","Paraskevopoulos U","Grigg P","Kinau C","Froelich M","Lambert","Gill B","Rumford A","Hatanaka","Schubert K","Zach B","Wilkins D","Drebbel","Nother A","Segers H","Hayford T","Mutus Z","Lichtenberg R","Riccioli F","Poinsot E","Vasco da Gama S","Lippmann P","Larmor W","Van den Bergh F","Michelson H","von Bekesy T","Zagut B","Dove","Vesalius M","d'Arsonval","Barbier V","Hertzsprung R","Newcomb F","Leibnitz S","Becquerel E","Fischer","Airy C","Boss F","Volkov J","Coriolis L","Helmholtz T","Winkler L","Rost D","Busching D","Hagecius G","Plummer C","Langemak Z","Maclaurin C","Brunner L","Pirquet S","Korolev L","Polzunov J","Ten Bruggencate H","Coulomb N","Gutenberg G","Furnerius Q","Cajori K","Klaproth G","Maclaurin N","Mezentsev Q","Anuchin N","Denning B","Messala G","Schubert C","Stein","Yablochkov U","Dreyer W","Wiener Q","Thales","Petrov B","Zhukovskiy W","Romer E","Vetchinkin F","Gadomski A","Rosenberger W","Kircher A","Izsak","Zernike W","Bose A","Kant","Spallanzani","Kapteyn A","Paneth K","Torricelli","Coriolis Y","Lodygin R","de Gasparis","Nonius L","Vitruvius","Hommel G","Poncelet A","Klute W","Mersenius D","Nijland V","Seidel M","Langrenus E","Abul Wafa Q","Boguslawsky F","Legendre L","van Wijk","Ibn-Rushd","Schjellerup N","Timiryazev W","Bohnenberger A","Ball C","Arnold E","Wegener K","Watson G","Lyell","Apollonius B","Vega B","Clairaut F","Jenner Y","Berkner Y","Kohlschutter W","Nother X","Foster L","St. John X","Lohrmann","Husband","Blancanus E","Proclus P","Teisserenc Q","Pentland D","Weierstrass","Adams B","Tereshkova","Deutsch L","Mutus T","Hagecius K","Houssay","Safarik","Korolev W","Wilhelm D","Stark Y","Sommerfeld V","Fontana","Kostinskiy E","Dyson M","Bayer H","Longomontanus C","Riccioli C","Rowland N","Kulik L","Mosting M","McLaughlin A","Denning U","Wilsing Z","McLaughlin U","Silberschlag P","Lick","Tannerus D","Plummer W","Maskelyne D","Helmholtz S","Kepinski","Brenner A","Heymans T","Agrippa S","Pontecoulant C","Bohnenberger","Grissom K","Lockyer H","Hall","Alpetragius X","Rocca P","Desargues E","Challis A","Maraldi E","Kurchatov W","Woltjer P","Kramers M","Brianchon B","Ellison P","De La Rue E","Debes","Roberts P","Vlacq D","Maclaurin P","Archytas","Petavius B","Clark F","Walther W","Gamow U","Weinek","McNair","Vendelinus F","Gemma Frisius C","Oppenheimer V","Mallet B","Aitken Z","Ctesibius","Noggerath","Chandler G","Pentland C","Proclus G","Macrobius T","Jules Verne G","Bobone","Bailly V","Mitchell","Bolyai D","Delmotte","Espin E","Doerfel R","Zeeman Y","Kostinskiy D","Gassendi A","Lindsay","Cooper K","Messala F","Lebedev D","Babbage A","Einthoven G","Koval'skiy Q","Steno","Watt L","Katchalsky","Hagecius F","Tsinger Y","Pictet A","G. Bond B","Millikan Q","Siedentopf M","Stiborius A","Hagecius B","Zhukovskiy Z","Bergstrand G","Von der Pahlen E","Fourier A","Lyot R","Mandel'shtam Y","Short A","Saha B","Love H","Lagrange N","Drebbel K","Green R","Clavius H","Hilbert L","Gill C","Volterra R","Coblentz","Kinau A","C. Mayer B","de Gerlache","McLaughlin P","Malapert B","Endymion C","Olcott L","Keldysh","Van der Waals H","Coulomb W","Patsaev Q","Timaeus","Deluc B","Sverdrup","Zagut E","Manzinus D","Petrie","Evershed R","Smith","Raimond K","Mutus C","Auzout","Andel","Oppenheimer H","Walker","Schickard E","Naonobu","van Rhijn T","Gould","Hommel B","Thiel T","Fraunhofer B","Palitzsch A","Ansgarius B","Flammarion T","Van Gent N","Minnaert N","Coulomb V","Gaudibert","T. Mayer","Nansen C","Pogson G","Reimarus R","Pikel'ner K","Wilsing C","Inghirami A","Hell","Steno Q","Boole F","Malapert A","Mason","Maclaurin T","Blazhko F","Chaucer B","Zhiritskiy","Mariotte R","Von der Pahlen H","Hainzel W","T. Mayer W","Palisa","Innes S","Kuo Shou Ching","Van Vleck","Lipskiy V","Reichenbach A","Hommel P","Kant G","Hamilton B","Petermann D","Ehrlich","Pontanus V","Lexell A","Chant","Ulugh Beigh C","Coulomb J","Apianus D","Heinsius Q","Perrine T","Argelander","Furnerius G","Wyld C","Priestley K","Demonax E","Rosenberger B","Lauritsen A","Smoluchowski F","Berkner B","Shi Shen Q","Jacobi C","Lemaitre F","Davy","Tiling D","Dubyago B","Tebbutt","Wood S","Brown","Calippus","Leonov","Wilsing W","De Vico A","Cabannes J","Obruchev V","Virtanen Z","Neumayer A","Vieta A","Timocharis","Fermat P","Coulomb C","Egede","Clairaut A","Carnot F","Daedalus G","Chretien W","Alhazen D","Becquerel X","Sniadecki Y","Godin","Pogson F","Byrd C","Debes A","Millikan J","Parsons L","Doppler B","Mees A","Webb C","Hooke","Paraskevopoulos Q","Compton R","Stoletov C","Tsander R","Lane S","Reichenbach D","Schubert F","Oppenheimer R","Racah N","Saha W","Polzunov N","Emden V","Dryden S","Boguslawsky C","Phocylides E","Lemaitre S","Snellius A","Warner","Mariotte U","Doerfel U","Watt D","Kao","Moretus A","Koval'skiy H","Halley","Tisserand","Back","Alhazen","Rabbi Levi E","Maclaurin K","Vernadskiy U","Van Gent D","Boguslawsky J","Amici R","Mallet C","Dryden T","Louville","Rocca R","Newton D","Romer A","Zanstra A","Weigel","Condon","Sirsalis D","Guillaume F","Klaproth A","Silberschlag S","Poincare Z","Wiechert J","Hertzsprung L","Arnold L","Lavoisier C","Yerkes","Grachev","Mechnikov C","Bingham","Fowler C","Miller C","Lockyer","Burckhardt A","Lovell","Lilius C","Henry Freres C","Birkhoff L","Janssen F","Archytas B","Foster P","Gum S","Jacobi G","Hirayama F","La Perouse E","Purkyne S","Schneller S","Lorentz P","Green M","Montgolfier W","Tsander V","Zupus","Gill G","Thiessen Q","Innes Z","Leucippus X","Zach A","Schliemann B","De Sitter U","Kugler U","Gilbert J","Neumayer M","Dreyer C","Oken A","Fitzgerald Y","Gauss B","Nijland","Golitsyn","Al-Khwarizmi L","Heinsius P","Sisakyan","Cleostratus A","Lavoisier F","De Roy P","Mills","Thiel","Casatus K","Casatus H","Chebyshev U","Tannerus F","Paracelsus M","Coulomb P","Aitken Y","Shayn B","King Y","Zeno B","Buisson Y","Stormer H","Hertzsprung M","Lebedinskiy A","Condorcet Q","Condorcet W","Deluc F","Donati","Dollond B","Barocius C","Lebedev C","Herodotus","Morse T","Oppenheimer F","Yakovkin","Krasovskiy J","Das","Newton C","De Sitter A","Chapman D","Hanno B","Lacroix","Segner B","Maclaurin B","Voskresenskiy K","Littrow P","Dufay","Fesenkov","Chaffee F","Julius Caesar P","Graff","Furnerius K","Hippocrates Q","Marconi L","Mandel'shtam T","Trumpler V","Montgolfier P","Censorinus N","Mosting E","Lippmann R","Taylor","Williams","Sacrobosco Q","Lampland M","Gemma Frisius G","Ideler L","Herodotus E","Kapteyn E","Barocius B","Stetson E","Curie M","Monge","Icarus V","Fowler W","Steklov","Bragg H","Schuster R","Geiger","Miller A","Damoiseau","Fraunhofer C","Pettit","Schroter","Racah W","Galois U","Grigg","Schluter A","Briggs","Milne N","Grotrian","Plante","Kurchatov Z","Moigno","Korolev E","Abel C","Necho","Vening Meinesz W","Shayn F","Lorentz R","Airy T","Fabry H","Seares Y","Grave","Oenopides B","Ellison","Le Gentil A","Duner A","Foster","Thales F","Guthnick","T. Mayer P","Mach H","Oppenheimer U","Lyman V","Magelhaens","Gauricus A","Ingalls","Chapman M","Lubiniezky E","Vertregt L","Pontecoulant B","Nassau Y","Marinus C","Blanchard","da Vinci","Burckhardt E","Parkhurst Q","Lebedinskiy B","Paschen L","Lundmark B","C. Mayer","Chauvenet S","Daedalus R","Coriolis W","Nearch C","Bianchini","Sharp","Pasteur D","Amici N","von Behring","Casatus D","Gadomski X","Fridman C","Fontenelle","Calippus C","Shuckburgh","Fowler N","Hainzel C","Fermat","Ideler","Jenkins","Holetschek","Democritus","Von Zeipel J","La Condamine","Van Gent X","Webb P","Golovin","Pasteur U","Steno T","Nother U","Prager C","Palitzsch B","Vesalius H","Congreve H","Healy","Joule T","Zhang Yuzhe","Purkyne U","Faye","Airy E","Parrot K","Amici T","Nicholson","Marco Polo M","Hirayama K","Harriot B","Litke","Sanford W","Neper D","Tiling","Oken N","Hayn J","Saha D","Scoresby Q","Chamberlin R","Maginus D","Le Monnier S","Manilius","Tseraskiy P","Lilius E","Krylov B","Maginus E","Epigenes P","Lyot A","Hogg","Dobrovol'skiy","de Gasparis A","Curie E","Weigel B","Lilius A","Kramers U","Perrine L","Wiechert P","Plummer M","Shayn H","Baco A","Grissom M","Lansberg","Butlerov","Cannon B","Neumayer N","Klute X","Gavrilov K","Hypatia","Wurzelbauer D","Messala E","Autolycus","Airy","Meggers S","Stearns","Liebig","Celsius","Glazenap","Runge","Malapert C","Schneller H","Kircher D","Henry","Emden U","Herschel","Neujmin P","Appleton D","Malapert K","Cichus","Dawson D","Abenezra P","Urey","Kepinski N","Taylor A","Vieta B","Gilbert K","Mariotte P","Cepheus","Mersenius P","Mairan","Zanstra","Icarus Q","Cavalerius B","Pontecoulant J","Nobel L","Siedentopf Q","Alekhin E","Franklin F","Maraldi","Deluc J","Virtanen","Condorcet F","Pons","De Vico T","Harpalus","Olbers M","Newcomb","Tacitus","Smoluchowski H","Palmieri","Kapteyn B","Markov","Beijerinck J","van't Hoff M","McKellar U","Aristarchus","Vening Meinesz C","Bose U","Langrenus T","Alpetragius","Lander","Chretien S","De Forest N","Marius","Legendre F","Glushko","Meshcherskiy X","Crookes D","Stofler P","Pasteur T","Wright","Poczobutt R","Crocco G","Blazhko D","McKellar T","Curtius B","Haldane","Ball","Lewis","Geiger R","Mohorovicic R","Hertzsprung V","Ibn Firnas E","Balboa D","Russell R","Lilius F","Gemma Frisius B","Bridgman C","Boole G","Kopff","Nearch B","Hanno A","Nicolai","Tamm","Asclepi","Dufay X","Zeeman G","Healy J","Bunsen A","Donner P","Schomberger C","Morozov Y","Planck Y","Riccioli K","Healy N","Colombo A","Soddy","Polybius","Wiechert","Kibal'chich H","Pease","McLaughlin B","Volkov","Oppolzer","Pogson","Cabeus A","Barkla","Appleton R","Arrhenius","Boss L","Firsov V","Pikel'ner","Debye E","Schwarzschild K","Krasovskiy P","McAdie","Morozov","Sundman","Burg","Hirayama Q","Harriot W","Macrobius M","Phillips B","Siedentopf F","Jacobi F","Parsons","Buffon V","Barbier U","Sniadecki","Tesla","Krasnov","Lee","Ulugh Beigh A","Hansen","Parsons N","Jarvis","Mallet D","Stratton K","Dante E","Malyy","Plinius","Anders","Isidorus","Poisson","Orontius F","Marconi H","Baco B","Clairaut B","Vil'ev V","Maclaurin O","Hoffmeister N","Mercurius M","Scobee","Boscovich","Gould M","Abel B","Crommelin C","Apianus P","Hayn E","Nusl S","Rothmann","Mutus F","d'Alembert Z","Sommerfeld N","Montgolfier Y","Chauvenet Q","Henry Freres","Nobili","Kinau","Palitzsch","Ten Bruggencate D","Maclaurin H","Jules Verne R","Ganskiy","Maclaurin M","Van den Bergh Y","Swann","Barbier J","Pontecoulant G","Langrenus P","Oersted","White","Coriolis Z","Hutton P","Stoletov","Stromgren X","Comrie T","Olivier Y","Nearch A","Gioja","Faustini","Delporte","Vitello","Sanford T","Reichenbach B","Tacchini","Chang Heng","Watt M","Sharonov X","Mallet K","Nikolaev","Bailly A","Houtermans","C. Mayer H","Tseraskiy K","Anaximenes H","Kugler N","Fraunhofer H","Saenger P","Hagen J","Peirescius D","Lampland R","Innes","Cremona A","Rozhdestvenskiy K","Hommel H","Flamsteed G","Merrill Y","Simpelius E","Lubiniezky","Plana","Hagecius E","Bergstrand","Parkhurst Y","Kulik K","Bok","Romer S","Bowditch","Perrine E","Harkhebi J","Xenophanes A","Tempel","Abenezra","De Moraes S","Rocca E","Hesiodus","Reinhold","Meton E","Fenyi","Lohse","Van den Bergh","Klein","Henderson","Engel'gardt","De Roy","Schjellerup J","Lindblad F","Amici Q","Lacroix K","Pontecoulant E","Sarton L","Abenezra C","Romer","Brisbane H","Planck C","Agrippa","Stiborius","Numerov Z","Maurolycus D","Cyrillus F","Pavlov G","Kapteyn C","Weber","Repsold G","Zeno A","Blazhko L","Pentland A","Furnerius H","Inghirami Q","Peirescius C","Goodacre","Rozhdestvenskiy U","Marinus R","Rocca M","Schlesinger M","Blancanus C","Tralles","Sirsalis","Denning","Tsinger","Ginzel G","Paschen S","Firmicus M","Casatus E","Dawson","Bragg M","Brisbane","Van der Waals W","Stebbins U","De Sitter W","Van Gent","Saunder","Rhaeticus","Hoffmeister","Aston","Woltjer","Einthoven X","Murakami","Biela B","Bilharz","Plummer N","Helmholtz D","Delaunay","Rost A","Romer T","Schwarzschild A","Icarus X","Geber","Al-Khwarizmi J","Fraunhofer E","Jeans X","Archytas D","Hommel A","Emden D","Lehmann E","Planck B","Damoiseau H","Cai Lun","Nother T","Nansen A","Wiener F","Gamow V","Anderson F","Koval'skiy","Hansteen","Eimmart","Vashakidze","Roberts M","Seleucus","Burckhardt F","Schiller C","Gullstrand","Lobachevskiy M","Young D","Teisserenc C","van't Hoff F","Cook","Hutton","Gutenberg C","Frost N","Lampland K","Schwarzschild L","Birkhoff Q","Borda","Nother E","Chaucer","Sasserides A","Maupertuis","Sklodowska A","Barrow K","Raspletin","Kies","Billy","Mitra A","Zwicky S","Repsold B","Deluc","Henyey U","Daguerre","Vil'ev","Chauvenet C","Longomontanus B","Charlier Z","Engel'gardt C","Garavito Q","Cruger","Byrgius S","Newton B","Krasovskiy H","Walker W","Phocylides C","Reiner R","McMath J","Prinz","Ginzel H","van Rhijn","Ellerman","Donner T","Adams D","Foster S","Dewar","Mercator","Schuster Q","Campanus","Van Maanen","Boguslawsky K","Krusenstern","Heymans","Shi Shen","Rosenberger D","G. Bond C","Balboa A","Rosenberger C","Evershed C","Olcott M","De Moraes T","Catharina P","Vasco da Gama C","Kulik J","Rost","Stebbins C","van't Hoff N","Lodygin F","Quetelet T","McNally","Bel'kovich K","Levi-Civita S","Hilbert G","Siedentopf H","Becvar J","Gernsback","Evershed S","Dirichlet","Maginus C","Parry","Damoiseau A","Bernoulli","Boyle Z","Thomson J","Tsinger W","Van Gent P","Main","Jansky F","Stoney","Azophi","Ingalls G","Seneca","Henderson G","Razumov C","Holden","Reimarus","Proctor","Lenard","Zollner","Petzval C","Ventris C","Stark","Descartes","Almanon","Cysatus","Paneth A","Pikel'ner Y","Clavius M","Obruchev M","Cabannes M","Van der Waals K","Curie C","Glaisher W","Evdokimov G","Rydberg","Mee H","Paraskevopoulos Y","Sisakyan D","Crocco R","Dubyago","Capella","Shirakatsi","Gylden","Bjerknes","Dobrovol'skiy D","Street M","Goddard C","Crookes","Rosenberger A","Hertzsprung D","Manilius E","Condorcet P","Mitra J","Sirsalis A","Shaler","Bayer","Berzelius","Riemann J","Niepce F","Cysatus E","Desargues B","Breislak","Stormer C","Kapteyn","Gernsback H","Opelt","Hilbert E","Lacroix G","Simpelius C","Edison T","Perel'man","Evdokimov","Hirayama Y","Hertzsprung S","Love G","Mobius","Champollion","Millikan R","Plaskett V","Riedel","Roberts N","Galois L","Mariotte Z","Fitzgerald W","Schubert X","Brianchon A","Cleostratus F","Neander","Szilard H","Milankovic E","Klaproth H","Larmor Z","Voskresenskiy","Pallas","Oberth","Eichstadt","Cardanus","Meton F","Cabannes Q","Dyson B","Dugan","Lebedinskiy P","Al-Khwarizmi H","Schjellerup R","Wexler U","Parenago W","Krylov","Rowland J","Pasteur Y","Playfair","Mouchez A","Saha J","Curie G","Mohorovicic","Rutherfurd","Hevesy","Helmholtz F","Pavlov P","Leuschner","McKellar","Simpelius B","Boss","Purkyne","Belyaev Q","Chacornac","Einstein A","Nusl Y","Nagaoka","Lavoisier E","Biela Z","Titius Q","Moulton H","Saha N","Apollonius","Brunner","Zernike","Beaumont","Borman","Stromgren A","Nobel","Douglass","Firsov","Neison","Blazhko","Krafft","Meggers","Anaximenes G","Lauritsen","Reaumur","Regnault","Buch","Hommel C","Haworth","Anuchin Q","Timiryazev S","Porter","Alter W","Vesalius D","Delambre","Mees","Fourier","Chaffee","Wegener W","Cavalerius D","Shoemaker","Chevallier","Cooper","Fleming W","Anaxagoras","Schubert","Bridgman F","Seyfert A","Agatharchides","Nasireddin","Amici","Furnerius F","Gerasimovich R","Schorr","Clark","Timiryazev","Bell T","Langemak X","Barnard D","Hayn A","Pavlov T","Pentland DA","Kant D","Wexler","Denning Y","Romer R","Beals","Cavendish","Moore","Harriot","Cailleux","Sumner","Widmannstatten","Beijerinck V","Garavito Y","Galois A","Milne M","Nefed'ev","Parsons D","Heymans F","Bolyai W","Lindenau","Kaiser","Wilsing V","Challis","Ginzel","Stofler D","Evershed D","Wan-Hoo","Lamarck A","Bjerknes E","Spencer Jones W","Pizzetti","Busching","Segers M","Deluc A","Hubble C","Darwin B","Tiselius","Lane","Ritz","Maunder","Dante","Stokes","Lehmann","Von der Pahlen","Prager","Zelinskiy","Blazhko R","Harriot A","Dante C","Mandel'shtam R","Abel L","Abul Wafa","Balboa B","Hagecius A","Maclaurin","Rocca Z","Burckhardt","Aristillus","Racah K","De Moraes","Dryden","Paraskevopoulos H","Fowler A","Cannizzaro","Epigenes","Gum","Saussure","Mechnikov D","Casatus A","Thebit","Jeans S","Azophi G","Laue U","Moulton","Congreve U","Strabo","Quetelet","Bouvard N","Pavlov V","Priestley","Rowland Y","Scoresby","Bartels","Kane","Fabricius A","Paschen K","Donner","Tsander B","Sanford","Kidinnu","Volterra","Arnold A","Dellinger B","Bunsen","Patsaev","Patsaev K","Bi Sheng","Congreve Q","Fizeau G","Seidel","Petrov","Geminus E","Hainzel A","Karrer","Roberts R","Baillaud A","Pontanus","Lambert R","Baldet","Vasco da Gama F","Chappe","Mallet J","Boole A","Khvol'son","Belyaev","Franklin","Simpelius D","Kleymenov","Morozov F","Ten Bruggencate Y","Oresme V","Lodygin","Heraclitus D","Jules Verne P","Behaim","Al-Khwarizmi","Kohlschutter","De Forest","Eijkman","Schubert G","Pentland","Scoresby M","Marinus","Cassegrain","Hase D","Froelich","Schaeberle","Guillaume","Korolev M","Haber","Firmicus","Alden C","Krasovskiy L","Schneller","Cassini","Schliemann A","Merrill","Leucippus","Ulugh Beigh","Lovelace","Bergstrand Q","Lippmann L","Boyle","Curtius D","Backlund L","Bel'kovich A","Taruntius","Brisbane E","Hippalus","Perrine G","Lagrange W","Hamilton","De Vries","Hagen","Simpelius A","Legendre D","McLaughlin C","Cannon","Mendel J","Congreve","Boussingault B","Hanno H","Fraunhofer","Firsov K","Langevin","Lade A","Murchison","Baade","Lacchini","Rowland M","Atlas E","Keeler V","Schorr A","Lade","Lagrange E","Birkhoff K","Marinus B","Damoiseau M","Daedalus C","Wrottesley","Rocca Q","Street","Vernadskiy X","Einthoven M","Eratosthenes","Lilius D","Mechnikov","Milne K","Mallet","Endymion B","Carpenter","Al-Khwarizmi B","Olcott E","Chappell E","Langley","Furnerius V","Vestine T","Buys-Ballot Z","Hippocrates","Comrie","Bonpland","Lyman T","Sylvester","Chernyshev","Fechner","Cavalerius","Kozyrev","Lindblad","Romer P","Watson","Wilkins","Hanno","Dawson V","Buys-Ballot Q","Cabeus B","Kramers C","Niepce","Capuanus","Ibn Yunus","Pikel'ner S","Drebbel E","Grissom","Idel'son","Blanchinus","Saha C","Pictet","Ten Bruggencate","Harvey","Pawsey","Brashear","Chamberlin","Maestlin R","Kulik","Lauritsen Z","Nusl","Pavlov M","Cockcroft N","Dalton","Bullialdus","Mendel V","Guericke","Olivier N","Rumford","Cusanus","Vasco da Gama R","Paneth","Artem'ev G","Lilius","Zsigmondy A","Buisson","Ramsay","Siedentopf G","Schumacher","Boole","Miller","Kinau R","Reichenbach T","Peirescius","Moiseev","Kramers","Perrine S","Nansen F","Gavrilov","Phillips W","Krasovskiy","Bredikhin","Ohm","von Braun","Phillips D","Belopol'skiy","Helberg","Mandel'shtam A","Oenopides R","Nishina","Anuchin","Pirquet","Stromgren","Bailly B","Abulfeda","Santbech","Newton A","Teisserenc","Saenger B","Artamonov","Carver","Newton G","Perkin","Hayn F","Paracelsus E","Lowell","Euctemon","Siedentopf","Edison","Macrobius","Ventris N","Schjellerup","Becquerel","Fraunhofer J","Lampland","Stetson","Dyson","Zucchius","Bellinsgauzen","Cleostratus","Adams","Jeans U","Steinheil","Hartmann","Lebedinskiy","Babcock H","Apianus","Harlan","Boguslawsky B","Chretien C","Leavitt Z","Lyot H","Lexell","Kidinnu E","Erro","Paracelsus P","De Sitter","Sechenov","Nassau D","Euclides P","Dreyer","Gill","Gregory","Winlock","Abbe","Petropavlovskiy","Fizeau S","Wichmann R","Stofler J","Rocca A","Mercurius","Pilatre","Schlesinger B","Appleton","Lucretius","Hedin A","Vesalius","Alter","Brisbane Z","Nother","Boscovich P","C. Mayer D","Reichenbach","Heinsius","Kekule V","Valier","Duner","Doppelmayer","Gemma Frisius A","Poinsot","Schubert N","Evershed","Baco","Barbier","Winlock M","Tseraskiy","Chandler P","Aitken C","Keeler L","Gadomski","Huggins","Ricco","Kugler","Meshcherskiy","Agatharchides P","Endymion J","Bronk","Jacobi","Buys-Ballot","Thiessen","Artem'ev","Krylov A","Korolev C","Maraldi D","Polzunov","Watt","Weiss","Wilson","Haskin","Becvar","Daedalus W","Jeans N","St. John","Planck Z","Zsigmondy S","Zeno","Wilsing","Zsigmondy","Barringer","Sierpinski","Cori","La Caille","Gerard Q Inner","Glazenap P","Pannekoek","Crocco","Poncelet","Lyapunov","Rosseland","Rheita E","Kiess","Joule L","Segner","Kostinskiy","Short","Poncelet C","Lamb G","Konstantinov","Hecataeus B","Kirkwood","Danjon X","Green","Hercules","Raimond","Le Monnier","Fernelius","Titius","Oresme U","Stadius","Evershed E","Capuanus P","Zach","Gregory Q","Stormer","Doerfel","Omar Khayyam","Brashear P","Pontecoulant F","Anaximander","Henyey","Simpelius","Dziewulski","Helberg C","Faraday","Florensky","Florey","Balboa","Milne Q","Danjon","Leavitt","Icarus D","Evans","De Sitter L","Mercurius D","Davy Y","Plutarch","Stratton","Espin","Kamerlingh Onnes","Bohr","Pictet E","Eudoxus","Bhabha","Mariotte","Sirsalis E","O'Day","Hainzel","Werner","Comrie K","Nonius","Gutenberg","Parrot","Rheita","Babbage D","Lavoisier","Kircher","Sarton","Jackson","Popov","Philolaus","Young","Paraskevopoulos S","Pingre S","Stevinus","Subbotin","Bettinus","Riccius","Racah","Piccolomini F","Obruchev","Mineur","Boltzmann","Lee M","Denning R","Malapert","Schiller H","Pannekoek R","Bolyai L","Morse","Nearch","Marconi","Orlov","Finsen","Avicenna","Olbers","Goclenius","Comstock","Deutsch","Oenopides","Vega","Jenner","Jansky","Chappell","Einthoven","Bouvard M","Moiseev Z","Hedervari","Shternberg","Saenger","Slipher","Cajori","Alekhin","Von Neumann","Condorcet","Waterman","Rozhdestvenskiy W","Razumov","Sharonov","Berosus","McLaughlin","Necho P","Boussingault A","Licetus","Backlund","De Sitter M","Plummer","Chauvenet J","Cantor","Nassau","Trumpler","Flammarion","King","Mutus","Birkhoff X","Beijerinck","Esnault-Pelterie","Chapman","Galvani","Houzeau","Clairaut","Petermann","Biela","Montanari","Thebit P","Bragg","Mees Y","Cuvier","Zhiritskiy F","Schliemann","Prager G","Yamamoto","Klute","Ganswindt","Chauvenet","Holetschek R","Rynin","Legendre","Frost","Nasmyth","Olivier","Hartwig","Coriolis","Oken","Peary","Gibbs","Meton D","Kolhorster","Fabricius","Zagut","Colombo","Anaximander B","Doerfel Y","Nobile","Sniadecki Q","Hagecius","Cyrano","Gauricus","Aliacensis","Pitiscus","Hansen B","Olcott","Lyot L","Elvey","La Perouse","Al-Biruni","Carver M","Komarov","Archimedes","Ley","Garavito","Hess Z","Anaximenes","Jeans","Cabannes","Birkeland","Sasserides","Hubble","Bridgman","Geminus","Dellinger","Oresme","Zhukovskiy","Hase","Alder","Boole H","Rabbi Levi","Barocius","Mouchez","Hertz","Freundlich","Lyman Q","Lamont","Lyman","Von Zeipel","Montgolfier","Metius","Maksutov","Newton","Ioffe","Tikhov","Rocca","Wood","Smoluchowski","Lame","Neumayer","Hale","Byrgius","Mersenius","Mezentsev","Mezentsev M","Wargentin","Julius Caesar","Desargues","Cremona","Tycho","Heraclitus","Schomberger","Paracelsus","Snellius","Meton C","Hayn","Bell","Scaliger","Tikhomirov","Wurzelbauer","Vieta","Lobachevskiy","Meitner","Perrine","Hahn","Prandtl","Schluter","Aristoteles","Piccolomini","Berkner","Torricelli R","Paschen M","Hopmann","Atlas","Spencer Jones","Ibn Firnas","Pingre","Gemma Frisius","McMath","Chandler","Vening Meinesz","Amici U","Perepelkin","Lagalla","Moseley","Laue","Vlacq","Roberts","Baillaud","Leucippus Q","Coulomb","Short B","Robertson","Birmingham","Brenner","Love","Gerasimovich","Sirsalis Z","Hess","Lomonosov","Abel M","Lipskiy","Philolaus D","Pontecoulant","Karpinskiy","Ansgarius","Langmuir","Gruemberger","Rosenberger","Kibal'chich","Playfair G","Legendre K","Vernadskiy","Rothmann G","Papaleksi","Cockcroft","Davisson","Bose","Shayn","Parkhurst","Arnold","Goddard","Dyson Q","Petzval","Crommelin","Vasco da Gama","Daedalus","Lemaitre","Icarus","Berlage","Barrow","Millikan","Isaev","Hecataeus K","Milankovic","Kekule","Vetchinkin","Schickard P","Wiener K","Parenago","Boguslawsky","Inghirami","Encke T","Koch","Alexander","Posidonius","Babcock","Pauli","Kastner G","Wegener","Manzinus","Copernicus","Longomontanus Z","Vavilov D","von Bekesy","Krasovskiy T","Anaximander D","Fra Mauro","Arzachel","Neujmin","Mitra","Milne P","Schlesinger","Byrd","Joule","Sacrobosco","Sikorsky","Vestine","Kondratyuk","Cyrillus","Philolaus C","Vavilov","Guyot","Theophilus","Chretien","Catharina","Gerard","Paraskevopoulos","Banachiewicz","Curtius","Larmor","Seares","Olbers D","Schuster","Gilbert","Cabeus","Kovalevskaya Q","Pitatus","Plato","Ventris","Wilhelm","Fridman","Yablochkov","Doppler","Gartner","Eotvos","Leeuwenhoek E","Bolyai","Vasco da Gama P","Piazzi","Seyfert","Philolaus G","Al-Khwarizmi G","Casatus","Saha","Russell","Amundsen","Wyld","Lundmark","Lamb","Boussingault E","Firsov S","Fitzgerald","Phillips","Rocca W","Langemak","Anderson","Numerov","Buffon","Blancanus","Fizeau","van't Hoff","Minkowski","Scott","Amici M","Ostwald","Pascal","Levi-Civita","Hermite","Repsold","H. G. Wells","Maxwell","Sternfeld","Charlier","Scheiner","Helmholtz","Alphonsus","Kurchatov","Gassendi","Alden","Rumford T","Stefan","Flamsteed P","Van der Waals","Wiener","Hommel","Kovalevskaya","Rayleigh","Thomson M","Hevelius","Gamow","Plaskett","Moretus","Emden","Lamarck","Purbach","Phocylides","Goldschmidt","Maurolycus","Buisson Z","Nassau F","Barnard","Kastner","Nansen","Volta","Thomson","Xenophanes","Letronne","Riemann","Petermann R","South","Brouwer","Orlov Y","Eddington","Fracastorius","Orontius","Engel'gardt B","Klaproth","Nernst","Lebedev","Demonax","Endymion","Darwin","Messala","Weyl","Michelson","Chaplygin","Meton","Heaviside K","Leeuwenhoek","Le Gentil","Sklodowska","Carnot","Zwicky","Fleming","Lagrange R","Regiomontanus","Debye","Szilard","Paschen","Poynting","Boussingault","Rontgen","Aitken","Stebbins","Avogadro","Stofler","Cleomedes","Albategnius","Lamarck D","Langrenus","Galois Q","Hecataeus","Mee","Walther","Furnerius","Repsold C","De La Rue","Balmer","Brianchon","Minnaert","Abel","Antoniadi","Langemak N","Evans Q","Curie","Fowler","Mendel","Vendelinus","Pavlov","Hipparchus","Neper","Pythagoras","Hirayama","Blackett","Longomontanus","Jules Verne","Babbage","Fersman","Lyot","Sommerfeld","Roche","Ptolemaeus","J. Herschel","Maginus","Riccioli","Hedin","Ashbrook","Keeler","Tsander","Lippmann","Lagrange","Drygalski","Richardson","Hausen","Struve","Heaviside","Compton","Rowland","W. Bond","Gauss","Vertregt","Joliot","Hilbert","Grimaldi","Mach","Chebyshev","Schiller","Fabry","Rozhdestvenskiy","Einstein","Mandel'shtam","Petavius","Tsiolkovskiy","Von Karman","Zeeman","Gerard Q Outer","Humboldt","Janssen","Oppenheimer","Schwarzschild","Schickard","Poczobutt","Bel'kovich","Landau","Von Karman M","Campbell","Deslandres","Clavius","Galois","Pasteur","d'Alembert","Leibnitz","Van de Graaff","Fermi","Milne","Gagarin","Pingre-Hausen","Bailly","Sikorsky-Rittenhouse","Schrodinger","Planck","Mendeleev","Birkhoff","Schiller-Zucchius","Amundsen-Ganswindt","Harkhebi","Poincare","Lorentz","Korolev","Humorum","Coulomb-Sarton","Moscoviense","Werner-Airy","Balmer-Kapteyn","Keeler-Heaviside","Apollo","Hertzsprung","Ingenii","Flamsteed-Billy","Marginis","Al-Khwarizmi-King","Grissom-White","Insularum","Freundlich-Sharonov","Lomonosov-Fleming","Mendel-Rydberg","Humboldtianum","Nubium","Fecunditatis","Mutus-Vlacq","Tranquillitatis","Tsiolkovskiy-Stark","Crisium","Smythii","Nectaris","Australe","Serenitatis","Orientale","Imbrium","South Pole-Aitken" ];				
+	var craterxyz = [ [-1199,-1125,-590],[48,-1510,-877],[220,87,1731],[-396,-1420,937],[845,-1394,628],[1486,911,109],[1479,-64,-927],[214,1689,-392],[-643,130,1619],[973,889,1146],[1614,-569,-352],[1306,1155,101],[979,-1445,-60],[-253,-1655,-499],[171,-455,1678],[812,457,1478],[1635,570,-231],[1038,-1403,60],[271,-1524,810],[1440,-30,-988],[332,632,-1594],[572,749,-1470],[1243,870,-865],[1478,-694,-621],[507,1515,-705],[-596,-605,-1527],[1180,-1034,-767],[951,-578,-1346],[332,-295,1689],[-1008,-403,-1369],[280,946,-1441],[684,209,-1593],[-459,-1255,1124],[9,-1536,832],[496,-645,1546],[832,-649,1392],[1116,-1043,-848],[879,-1330,-714],[306,-1506,-831],[-781,1387,-719],[526,-1447,825],[1570,-18,766],[756,-774,-1371],[1082,-343,-1328],[1525,-707,-476],[-1559,-411,671],[268,-173,-1717],[-928,-1039,-1053],[-697,-1586,221],[-498,-1506,-732],[345,-1526,776],[1554,226,-765],[6,-1569,768],[1658,-491,249],[993,722,1242],[-449,760,-1507],[1730,-229,70],[697,-1162,-1102],[-245,-1069,1360],[-348,-1595,-620],[1268,1010,650],[1673,-499,46],[729,-492,-1509],[-1219,-1250,55],[-517,-1440,843],[396,1616,-531],[416,1318,-1068],[-534,1626,-349],[1287,-998,631],[1597,-623,-332],[1694,-417,-89],[1646,121,-572],[-201,1264,-1188],[1706,273,-255],[852,-461,-1453],[-1196,-881,-918],[919,1076,-1023],[45,-1731,-227],[15,792,-1557],[-17,1286,-1181],[-707,-1036,-1215],[820,-1418,606],[-607,-1507,-641],[-1223,1246,38],[903,1331,680],[756,-1201,1018],[1225,484,1147],[1548,157,-794],[63,1147,-1316],[1092,892,1031],[1030,-1330,-472],[1364,-14,-1091],[1453,407,-880],[648,-230,1606],[-606,125,-1633],[-37,-1417,1021],[-179,1016,-1409],[292,-1396,1009],[-165,-1571,-745],[-1471,-712,616],[-295,1063,-1354],[-613,17,-1636],[182,-1627,608],[-519,-693,1517],[617,-1431,789],[-1365,-1089,-45],[460,489,1613],[-896,349,-1458],[451,-1234,1150],[1222,690,1040],[-1483,621,-683],[484,-1629,404],[1005,718,1235],[244,-530,1646],[674,-608,1492],[870,-1507,-153],[60,535,-1662],[-41,-1455,966],[1417,-945,-386],[889,945,1169],[-1367,-20,-1087],[23,-400,1700],[-1091,-1097,-811],[-579,-456,-1583],[-1042,683,-1224],[39,1647,580],[411,-1063,1324],[841,-1462,-454],[206,-1002,1416],[263,-1678,407],[-1265,-1186,208],[-420,1692,103],[-619,1624,172],[1441,-96,-983],[1246,-609,1061],[-71,-497,-1673],[-526,353,-1628],[453,-1681,-139],[35,116,-1743],[882,-82,-1506],[1088,1194,-664],[-686,-1540,458],[775,1215,-987],[1141,530,-1211],[729,-937,-1281],[851,-334,1488],[377,313,-1676],[-509,1668,-100],[-668,-1323,924],[-44,1525,-851],[462,-1180,1202],[1707,129,349],[76,-695,1601],[1695,50,421],[-1271,-824,-869],[272,-986,1416],[-172,-538,1653],[979,-94,1443],[-345,1700,-205],[278,-1566,722],[973,912,1128],[-246,-1306,1134],[1131,1228,-515],[169,729,-1578],[-201,258,-1716],[1110,1213,589],[357,1610,-577],[1705,211,-316],[-919,1460,273],[1040,-1099,-872],[587,-1084,-1237],[1404,-1034,103],[324,-1065,1346],[-194,-1494,883],[-960,-480,-1378],[16,-1367,1087],[1380,-1067,85],[-330,402,-1667],[282,190,-1713],[-155,1281,-1177],[-1012,241,-1403],[-228,5,1732],[-270,-1725,-46],[-1576,-351,-666],[98,1671,500],[1686,395,-231],[-851,-1426,540],[-662,-1066,-1215],[1734,-196,-70],[310,-1415,977],[-1182,-431,-1212],[-1238,-1055,637],[160,-1737,-87],[1436,-924,-366],[-9,510,1671],[360,-1456,896],[713,-1081,1171],[1039,-1305,519],[1080,-1300,441],[1697,262,-320],[1515,19,-870],[-364,724,-1547],[-721,703,-1427],[-105,383,-1701],[-935,1364,-562],[-726,-496,1509],[629,-1196,1106],[602,-1451,763],[73,-523,1665],[1166,-249,1276],[981,-1256,713],[736,1012,1218],[401,627,-1580],[169,-1598,684],[16,1422,-1014],[1618,613,-240],[188,510,-1660],[636,-376,-1583],[-60,467,1682],[645,-656,1485],[-202,1700,-349],[1140,-517,-1218],[56,-604,-1638],[-1040,139,1396],[-1327,-322,1090],[1656,-42,554],[-1250,-936,783],[308,-722,1560],[1140,1317,-132],[-907,-1133,971],[-632,-1064,1232],[257,-45,-1727],[155,188,-1730],[1369,-1062,222],[50,-1515,868],[434,-1264,-1124],[-982,-326,-1407],[548,-1128,-1216],[-1203,1034,-731],[-102,-1475,-930],[-301,1697,-283],[-1426,726,-700],[177,-1198,1258],[220,-240,1716],[-1336,1050,402],[-441,1256,-1131],[846,640,1387],[691,-160,1596],[953,515,-1370],[1721,-281,-106],[725,1130,1117],[-53,-1449,-973],[411,134,-1692],[410,392,1652],[1197,477,1179],[-430,-1394,960],[1243,-68,-1225],[68,-1539,-824],[-475,1528,-701],[1470,-179,926],[-114,-1228,-1236],[-119,-1578,740],[-135,-309,1714],[173,-1619,632],[1230,1135,499],[760,-1311,868],[-156,-751,1569],[1667,-375,-364],[1661,-8,-541],[42,-1295,-1172],[-857,10,-1522],[-716,1577,227],[742,601,-1463],[-271,-225,-1711],[1578,540,-519],[872,1051,1089],[155,-126,-1735],[-1523,-624,584],[430,-132,1688],[-150,1302,-1155],[19,-1258,1212],[-885,-26,-1505],[1330,1109,-228],[-764,1333,-831],[111,-1544,809],[1344,852,719],[-1299,1117,-342],[999,1211,-766],[-280,-1121,1310],[1474,209,914],[-1551,-119,795],[1591,-239,680],[469,-543,-1592],[-730,1580,-147],[1093,-31,-1362],[773,-1316,849],[-68,-636,-1625],[-995,-1386,-373],[-935,1375,536],[980,99,-1443],[1126,71,-1333],[-214,-896,-1484],[1165,1238,402],[-487,-1508,734],[1612,-98,665],[-520,-1639,-306],[-1348,1079,263],[-315,-241,-1701],[-531,-1227,1124],[260,-1267,1174],[-1429,-609,799],[1184,-1113,640],[-1057,-1358,297],[1717,-242,207],[1055,1380,182],[-177,225,1723],[-1541,818,-89],[156,-1726,217],[1551,646,-477],[-1590,648,-318],[-234,-995,1416],[-438,1690,-71],[1017,1290,595],[483,1617,451],[-495,1670,132],[-1415,-892,502],[68,-1395,1048],[-371,-727,-1544],[-579,-1372,912],[1205,-385,1205],[-1196,1253,225],[2,1643,592],[1717,-274,163],[1535,-834,-5],[14,-625,1631],[-261,318,-1698],[648,1468,689],[644,-1181,1115],[979,0,1447],[995,-1315,576],[-100,-1196,-1269],[137,-1712,316],[1514,797,349],[-1065,246,1362],[948,-138,1461],[573,59,1649],[-480,190,-1669],[361,-479,-1640],[736,-955,-1264],[975,-1159,870],[35,-556,1656],[760,835,-1333],[212,-1255,1196],[83,-1085,1366],[-1088,-1111,794],[-845,-1145,1013],[177,-121,1734],[440,68,1689],[590,1459,-758],[642,-339,-1589],[-177,1171,-1283],[-798,-129,-1549],[783,600,-1442],[-1034,-1392,-207],[-836,-308,-1502],[-1124,1138,-702],[599,42,1640],[898,1424,466],[-80,-1284,1181],[-60,-1494,-903],[-756,-1287,-906],[1471,721,-605],[-1092,-789,-1111],[1332,-974,-573],[-459,-628,1564],[1207,-1259,93],[951,-1392,-457],[-1420,210,995],[1037,-68,-1404],[676,-272,-1587],[412,-910,1433],[1301,-440,-1079],[-397,-113,-1697],[-78,-709,1595],[-345,-111,-1709],[102,-1735,-171],[543,950,-1361],[389,1649,426],[1279,1116,411],[795,-738,1369],[-472,1340,-1016],[-1284,319,-1140],[299,-1523,801],[-358,1704,-136],[-563,759,1469],[777,-1540,275],[-299,-742,-1553],[-1293,855,-805],[1693,73,425],[44,-1492,908],[467,-816,1472],[-998,-1144,864],[-579,1630,-244],[935,1268,-755],[11,402,-1700],[433,-1571,628],[-1352,991,490],[-1659,-265,479],[-232,1719,-205],[-1692,382,209],[-884,-1448,-414],[58,970,-1451],[-632,895,-1360],[-1545,132,-803],[915,1376,-565],[474,-928,1402],[623,-1274,1020],[1578,-178,-728],[1415,-312,-975],[694,-662,-1460],[-1282,-8,-1187],[1009,910,1097],[184,-1121,-1327],[989,1145,-873],[1054,242,-1371],[137,-576,1643],[1022,1416,16],[1250,-435,-1139],[224,-62,-1731],[620,-1593,357],[-40,1122,-1338],[-495,-1459,823],[506,-1093,1265],[608,-1540,555],[-729,-691,-1429],[1511,-179,-858],[1635,-38,614],[1705,-376,-46],[1093,-612,-1217],[-684,-174,-1598],[1420,699,-737],[1198,-306,-1234],[-1002,1344,-489],[1117,-184,1330],[1243,-1111,521],[205,-1324,-1121],[-331,-1627,541],[1620,-116,642],[-428,1633,-449],[1076,-1363,-190],[1000,-445,-1361],[1265,1101,488],[1738,59,163],[26,212,-1734],[711,1541,-415],[1701,356,-172],[776,1106,-1107],[636,1539,528],[814,-1545,-11],[-285,294,-1698],[970,833,1190],[1236,289,-1200],[-758,1082,-1142],[612,-1495,664],[-480,-1595,525],[1422,-691,-743],[367,587,-1603],[-245,-1331,-1104],[593,-322,1611],[504,-1264,1094],[1604,-427,543],[-833,1535,-41],[828,-143,1531],[274,108,-1722],[-839,-551,-1429],[-1219,-761,993],[89,-964,1454],[864,530,1423],[424,-1483,819],[-306,1718,78],[-822,1075,-1104],[-1171,-687,1098],[1075,991,-955],[663,-1009,-1262],[1486,-385,833],[1572,4,-762],[351,-1691,264],[1477,-823,437],[705,-1549,-391],[632,-354,1589],[280,1598,-648],[-869,-78,-1513],[1073,-534,1271],[-211,-1068,1366],[342,1656,436],[-1179,1195,-482],[-680,-1559,-397],[1104,411,1290],[1467,178,931],[1081,-1261,539],[302,-1252,1180],[1362,-1087,-113],[-1483,813,-434],[813,486,-1468],[-563,1627,-293],[-1036,625,-1259],[915,415,-1428],[-1612,-13,672],[-709,-1130,-1127],[-257,-1604,642],[1266,462,1111],[-1010,901,-1104],[189,-1559,764],[1703,-38,388],[1357,-914,612],[908,826,-1243],[1500,675,-588],[324,-1501,833],[662,-1532,516],[207,1734,-31],[98,316,-1715],[-582,-5,-1647],[-398,-1166,1238],[1145,-719,-1106],[-116,1600,-690],[-1405,-482,919],[1420,457,-908],[-785,1484,-481],[-560,-1405,874],[-340,-1404,982],[-1672,17,505],[-273,1432,-963],[-589,1134,-1190],[-132,-41,1741],[-1091,1364,-44],[1106,-477,-1265],[-691,-614,-1482],[-1181,1279,-144],[361,206,1697],[1360,374,1031],[301,-1447,931],[-652,-696,-1463],[936,73,1473],[630,-1575,414],[1229,837,-917],[854,-1132,1020],[-190,1685,-421],[268,160,1719],[846,-1443,504],[1079,-488,1284],[-632,-1328,-943],[667,-1224,1052],[868,972,1163],[-168,-470,1674],[-1629,-337,532],[-544,1645,223],[13,1704,384],[971,536,1349],[853,1126,-1027],[-403,1190,-1213],[-889,1342,-678],[-535,1663,7],[-996,1388,-364],[730,1462,616],[1192,859,944],[14,1604,-691],[680,-1313,930],[1626,-185,609],[78,1495,899],[1377,-594,894],[1143,-1091,-744],[-65,-947,1466],[480,1601,-508],[933,-808,1236],[-750,-1025,-1199],[1500,-554,702],[455,-1019,1343],[-181,-929,-1468],[946,-1271,734],[199,-449,-1676],[1531,25,-840],[-825,-1315,801],[95,1196,-1269],[208,-1584,706],[1155,385,1252],[1198,704,1058],[711,-1008,-1236],[-1157,785,-1046],[-536,-1661,80],[389,1334,1059],[1152,-941,-915],[1349,797,772],[1428,831,-565],[-487,-1654,-279],[-354,-1666,-389],[1406,483,-916],[-1077,-468,1293],[390,-212,1689],[36,1355,-1102],[1227,1096,588],[1133,-1239,-482],[-740,1500,505],[1610,-166,-656],[1583,-695,-253],[460,941,-1398],[896,-1389,565],[1561,179,-763],[572,-1548,573],[77,1476,-931],[-170,-1235,1223],[861,872,1245],[1107,1208,-605],[1165,568,-1170],[812,-1049,1136],[650,-1520,564],[-380,298,-1679],[20,-593,-1643],[-1237,-725,-998],[-1151,-878,977],[1208,-1260,56],[542,276,-1638],[-8,-1702,394],[1688,44,-448],[1315,-211,-1130],[-1423,-927,410],[-1018,-1124,866],[1313,88,-1149],[-295,-1373,1038],[1539,-630,-533],[749,-1548,305],[761,1447,-614],[1103,-1077,-820],[279,-1547,762],[231,1516,837],[-46,-1746,1],[-1231,1236,-100],[-17,-1714,339],[797,1487,450],[1457,546,-794],[755,1362,791],[1045,-1230,-667],[-834,1451,-499],[1225,-531,-1126],[-7,1555,795],[5,-1379,1072],[-22,-1746,-45],[581,-918,1367],[252,-1635,561],[1169,1238,-390],[-459,993,-1362],[-719,-920,-1299],[-619,386,-1587],[383,-1533,745],[1545,309,753],[368,-315,1678],[-400,-1045,-1341],[-488,-761,-1495],[-929,-1283,735],[1475,-143,924],[687,1379,-823],[-489,-576,1575],[597,-1437,794],[-913,1124,-976],[1199,-1167,501],[1419,-792,641],[1700,-363,175],[-62,-85,1744],[584,403,-1596],[45,-1648,-576],[-875,1436,-473],[1052,-331,1355],[-820,468,1470],[164,1735,113],[1173,-1190,-508],[1058,-1291,516],[895,-1358,-638],[-754,-555,-1474],[-1125,-1233,514],[-200,-936,1461],[578,848,-1413],[-750,1571,140],[-19,-1721,297],[651,1185,1106],[1587,-56,728],[-827,905,-1244],[-1165,189,-1288],[1369,-734,-799],[-930,-878,-1189],[-1223,-799,-957],[-827,-1140,1033],[-954,527,1365],[-215,-287,1710],[1375,807,-713],[-1230,246,-1215],[1709,-53,357],[38,-39,-1746],[1159,-827,1012],[500,-1465,809],[577,-279,1625],[1272,-1184,182],[356,1703,154],[-177,1142,-1310],[344,-852,1485],[-33,-1049,1396],[-1259,-1126,-445],[-1465,910,278],[-975,1394,-394],[290,-768,1542],[-336,-1120,1297],[-990,1167,-841],[169,-497,1666],[1249,-1079,572],[1716,22,-326],[844,-1497,-314],[243,-1710,259],[775,-1378,743],[1573,-734,-192],[-874,1512,-12],[-1475,858,-374],[479,1679,-51],[159,-1511,862],[-435,-1535,-710],[-242,-358,1692],[-809,-1375,-711],[1642,93,588],[1385,287,1024],[-1051,1201,-709],[-371,-1268,1143],[252,1097,1335],[866,570,-1406],[-580,-546,-1554],[-1482,-561,735],[-178,-1546,-793],[512,-1037,-1309],[97,503,-1670],[432,-1688,124],[-1298,-882,766],[-353,785,1520],[532,-701,1509],[-882,1468,-345],[212,1313,1133],[291,-1319,1107],[-700,1379,-811],[-77,-199,-1734],[408,-1225,-1176],[1590,588,421],[1020,1169,-802],[-305,-628,-1601],[308,55,1719],[1167,-1176,-554],[81,1738,151],[1198,839,954],[1005,1247,-696],[-254,968,-1432],[-604,-351,-1601],[-1675,471,-155],[1568,4,770],[1076,1149,757],[-537,1302,-1033],[1063,1386,-19],[-537,1257,-1087],[-797,92,-1552],[1298,-298,-1130],[1083,-826,1093],[1705,100,366],[-230,-1062,-1368],[30,-511,-1670],[1710,-18,-354],[1457,706,-655],[28,1587,-729],[-519,-976,-1352],[264,-1652,503],[-838,-1438,529],[-325,-1539,-759],[1249,-804,918],[1741,-121,80],[-923,-823,-1233],[-560,-1628,-294],[918,-1345,632],[1734,-204,66],[-141,-1646,568],[1573,-669,-359],[172,-244,1721],[1212,637,1084],[1723,36,283],[1596,479,524],[523,-1045,1298],[1605,-29,687],[1285,704,-951],[524,484,-1594],[255,-1662,472],[-139,-348,-1706],[1015,-1214,740],[-529,-950,-1367],[-902,1216,870],[-1640,-338,497],[-110,-1696,405],[930,823,1228],[1421,141,-1005],[-580,-1488,708],[1517,57,863],[-1470,-302,894],[-226,1240,-1209],[-242,-1622,602],[368,233,1692],[278,-1411,-991],[-6,-1741,-146],[-1363,6,-1092],[349,1642,484],[-1379,1021,325],[1327,440,1048],[-1654,-116,-550],[-912,-284,-1463],[1567,243,-732],[-761,1230,-978],[-8,-1080,1373],[720,-1262,969],[1284,884,787],[-853,-1045,-1110],[57,-1421,1015],[-1373,-728,798],[-550,1454,-796],[753,-1335,838],[46,1534,834],[-975,601,-1319],[1339,-1115,119],[215,-1490,886],[1725,-175,-215],[1685,-308,342],[1746,-54,-20],[-315,1139,-1286],[-1469,917,-227],[1275,10,-1194],[-303,1317,-1107],[-757,226,-1558],[-1322,-516,1019],[723,-1565,280],[-48,1675,-494],[1328,858,-741],[-1275,956,-714],[69,-1551,800],[710,66,-1595],[267,1707,257],[1015,-1406,-211],[1663,-131,519],[540,-1659,91],[1697,333,-246],[1204,-1199,405],[-184,897,-1487],[1398,1026,206],[1048,956,-1018],[-1525,-744,-414],[1659,114,-535],[-320,-1109,1311],[1244,1148,-431],[-783,1552,171],[-1375,1052,230],[-898,-1485,-200],[710,259,-1575],[-951,1127,-936],[-298,-1686,347],[-195,-1662,499],[-994,-959,-1069],[376,-1430,929],[452,-765,-1504],[-988,1343,-519],[210,-361,-1696],[163,988,-1431],[1507,197,-861],[1188,1214,407],[1607,34,-684],[496,1425,-879],[-1331,-229,-1108],[-469,316,-1653],[1642,340,490],[1561,420,662],[-46,-1515,869],[145,-617,1628],[414,-234,1681],[383,-1194,1216],[1137,-1249,-445],[-1226,689,1035],[-18,659,-1617],[-474,-1001,-1350],[-997,-1421,195],[-172,95,-1736],[-1065,-779,-1144],[-115,-1683,454],[132,1722,264],[-1086,1362,-129],[989,-1389,380],[-1183,-1074,705],[-772,-1477,522],[1653,-112,553],[-1524,840,153],[871,688,1348],[315,169,-1710],[1133,-687,-1138],[-613,-1100,-1210],[419,338,1662],[-1292,-1176,29],[1274,-1078,516],[-333,1625,-547],[973,-353,-1407],[583,168,-1638],[420,865,-1458],[-391,1250,-1155],[1041,-58,1402],[-139,5,1741],[-810,-1466,-496],[498,-160,1667],[786,1169,1032],[485,-644,1549],[1092,-966,-961],[289,-960,1430],[456,-1325,1043],[-1192,856,947],[1614,-268,611],[393,-1216,1190],[-1195,-1114,-617],[1532,-836,-67],[1217,-575,1113],[-120,-119,-1739],[-600,1249,-1064],[-1352,-1045,-363],[-1283,1157,-257],[1007,101,-1424],[622,-434,-1573],[43,-1068,1382],[-1526,-147,837],[1154,-1192,547],[-1547,-807,87],[-212,83,1732],[33,-377,-1705],[-727,-386,-1541],[-1304,378,-1099],[-1710,-279,223],[-1462,778,555],[1319,-1022,-514],[554,-1598,-437],[495,-310,-1646],[818,1140,-1040],[338,1599,616],[-781,-104,-1559],[1395,-1030,210],[1455,-159,-953],[568,42,-1651],[117,950,-1461],[-1439,959,-244],[268,-576,1627],[1253,1169,-337],[238,1705,-294],[829,-512,-1450],[-850,1490,327],[-954,1430,-311],[-368,-1684,281],[4,1280,-1189],[-997,699,-1253],[596,1503,660],[-1171,-1293,-82],[-836,423,1474],[-995,450,-1363],[-296,-988,-1409],[364,-1553,-712],[1188,-362,1228],[-333,-1018,1380],[-703,770,-1401],[-1135,1311,-212],[-770,-499,1486],[242,-625,-1613],[790,-1481,483],[92,-666,-1612],[1319,-1077,391],[-917,-1485,-56],[1218,276,1221],[1240,888,851],[1401,-1003,-285],[-489,303,-1649],[-1072,-495,-1287],[615,-1062,-1243],[233,1560,750],[1219,-371,-1194],[143,-232,-1725],[361,93,-1707],[474,-1544,664],[-650,1314,950],[-787,1251,931],[1630,-274,-566],[-222,-359,-1695],[1644,-235,543],[-271,-1701,288],[-726,1064,-1179],[-1408,-321,-983],[-254,1562,739],[214,1109,1332],[1022,1183,778],[-739,1118,-1120],[-712,-1150,1105],[545,-674,1516],[431,-1325,1054],[1709,11,362],[747,-809,-1356],[465,1547,665],[-859,1133,-1014],[-491,1405,914],[583,491,-1571],[1475,72,933],[432,1117,-1272],[1683,-303,-357],[511,939,-1381],[-563,1611,-375],[1282,-54,-1185],[1455,-777,576],[1521,-128,-849],[-430,-39,-1693],[-1375,938,-528],[-819,806,-1315],[-419,-1632,-462],[1746,-22,-50],[108,-637,1623],[214,-619,1619],[46,-425,1694],[-177,-300,-1712],[-1562,-772,130],[-32,526,1665],[1723,-251,-147],[1329,960,-603],[1401,-503,-914],[-925,962,-1126],[1703,281,271],[-770,-1392,-721],[1240,-1182,340],[614,1607,303],[1662,5,-538],[58,1705,374],[874,-1512,-40],[-46,-1296,1170],[867,787,1296],[266,436,1670],[717,-1357,-834],[55,-1343,1115],[-385,1049,-1342],[-34,-1320,1144],[-68,1590,720],[1128,-1318,200],[1236,964,-771],[1311,-388,-1087],[-1219,-786,974],[1605,-666,-180],[-599,-1494,677],[151,-1438,979],[-752,1411,-702],[-1084,1093,-826],[70,-1741,-130],[-670,-775,-1415],[117,912,-1485],[363,-1395,987],[-600,-1318,-976],[-783,-9,1562],[-1617,364,-551],[1641,526,287],[570,-1647,117],[-806,1105,-1086],[1237,451,-1147],[669,-129,1609],[-427,-1035,1340],[1212,1122,566],[39,891,1502],[162,-544,1652],[1386,709,-792],[429,994,-1371],[-1188,-720,1059],[496,-979,1359],[1174,-56,-1292],[1743,-74,97],[47,-1725,269],[-450,1111,-1270],[-513,-1613,430],[-1339,-709,869],[23,1571,-762],[-63,-173,1737],[1269,-834,-863],[458,1070,-1303],[37,-1713,340],[-527,-959,1361],[-520,-1600,-471],[280,-598,1617],[1542,818,69],[1260,783,-922],[461,-128,1680],[-1308,-886,745],[1664,-172,503],[-972,-870,-1162],[949,1139,924],[-1217,-598,1101],[-899,1160,947],[1434,89,-993],[-112,-236,-1727],[-1644,181,562],[745,-1539,359],[-1674,377,-327],[1175,625,-1131],[-563,-1608,-388],[1026,1061,934],[940,579,1353],[-75,-1403,1038],[95,471,-1679],[1654,251,502],[579,-750,1467],[-1459,-559,781],[-728,1390,767],[-1709,243,265],[1047,867,1097],[544,-487,1587],[-892,1501,-44],[-1136,-837,1030],[1591,-469,547],[-926,1403,475],[744,-442,-1517],[-712,1455,-653],[-154,-415,-1690],[-1179,703,1080],[486,35,-1678],[-72,-1397,-1046],[1541,-145,809],[-132,-483,1674],[1256,-462,-1123],[402,-1270,-1129],[-80,-1716,-318],[-1325,360,1079],[1411,-968,348],[-1690,246,369],[1385,486,-947],[-495,-291,-1650],[162,-1200,1259],[1682,-355,-310],[-1486,-914,84],[-955,1443,-240],[545,-1286,-1048],[-833,946,-1209],[-204,-456,-1674],[62,-1567,770],[1737,-50,179],[-206,-1025,1399],[-1511,-554,-680],[673,-466,-1543],[-352,-588,-1607],[-1248,154,-1212],[1410,219,-1008],[-1633,547,293],[-1480,845,384],[30,-1326,1137],[420,-1016,1357],[765,1268,-925],[-730,1587,-8],[-1667,-522,9],[495,-1529,684],[927,-1406,463],[562,-1179,1159],[964,-131,-1450],[429,-1434,900],[338,218,-1700],[-447,-1682,-146],[-1429,874,-496],[-1274,1195,28],[1447,-964,-162],[103,-1703,374],[1382,203,-1049],[748,-1425,-678],[-1705,-70,374],[-1399,892,-544],[1186,-428,1209],[1485,13,-919],[698,-667,1455],[47,-1737,-175],[-1001,52,-1430],[-1637,378,-478],[-1127,1335,-19],[1268,-411,-1129],[-13,-46,1746],[1204,-1177,-464],[-155,-1730,183],[1583,-323,664],[568,1030,-1291],[-987,-1441,-24],[1093,1355,144],[1622,152,-629],[959,-1306,-653],[-178,1340,-1106],[552,1612,-384],[-81,26,-1745],[1744,64,-67],[1384,140,-1056],[-1715,326,-50],[583,1237,1087],[1730,-241,-38],[1328,1004,-528],[1037,737,1196],[1514,-688,533],[1079,659,-1205],[150,-1492,896],[-213,1057,-1374],[-916,-1101,-999],[676,-676,-1462],[-312,-662,-1586],[1126,1084,-780],[-1490,-871,267],[-981,-891,1138],[-1421,980,267],[1617,423,508],[-170,980,-1436],[-752,-1005,-1214],[1015,-1258,661],[427,-220,-1679],[-79,781,-1560],[1560,655,-434],[674,462,1543],[-784,-1153,-1052],[955,-241,1443],[276,-882,1482],[-92,-1105,1350],[920,-326,-1449],[322,-1331,1084],[254,-1305,1132],[1046,-155,-1390],[1615,-4,667],[1157,407,-1244],[1061,1355,301],[-754,-909,-1287],[328,294,1690],[-493,-530,1590],[1388,-1044,180],[-425,-1589,-587],[250,-746,1559],[623,1608,276],[409,904,-1437],[697,-895,1328],[395,-1599,581],[244,1435,-965],[-249,1541,-784],[-350,1342,-1062],[1182,-404,-1221],[-1373,-697,824],[1695,5,424],[220,-1524,824],[1391,-820,666],[1175,-247,-1268],[1571,-48,762],[875,-1049,-1089],[1709,-292,-209],[1627,-148,618],[-506,945,-1379],[994,1376,-412],[532,-759,-1480],[816,-1474,462],[1522,-364,775],[937,1193,866],[-443,-1231,-1157],[258,119,-1724],[311,1015,-1387],[-514,1231,-1127],[-1184,-521,-1173],[-1449,684,-696],[575,1540,-591],[560,-1516,663],[6,1735,202],[85,-1745,8],[1432,-478,-879],[-918,-884,1194],[-873,937,-1188],[1143,-830,1027],[1735,154,126],[1530,566,-624],[904,-1399,527],[222,418,-1681],[989,-1290,638],[687,1004,-1254],[-533,-1634,313],[1722,-285,78],[193,1573,735],[625,-1385,-862],[-331,1684,323],[957,-1444,-222],[1163,-1140,630],[1706,83,-365],[764,-1323,-846],[1109,-1302,357],[1142,-918,-951],[1347,816,-756],[-619,1633,-9],[-129,1731,-199],[541,-1387,913],[-1354,-144,1094],[-364,1697,-193],[109,-1642,587],[-673,-536,1520],[611,1174,1139],[594,-1563,504],[102,-560,-1651],[1480,-865,-333],[-644,1095,-1199],[-240,-605,-1621],[949,735,1269],[1543,-737,-358],[-1051,1181,-742],[1350,1061,-320],[-868,1514,78],[358,114,1706],[336,-625,1596],[733,1313,-888],[-1603,-355,596],[-430,-858,1459],[-677,99,1607],[117,1689,430],[-1194,-1234,-321],[1474,-415,840],[-532,897,-1401],[75,-363,1707],[817,145,-1537],[-610,164,-1629],[-984,-1435,-155],[193,1614,-639],[-593,1643,-45],[-122,-373,-1702],[-1208,-1006,762],[779,-1521,364],[-1031,1274,-603],[313,-636,1596],[936,750,1270],[1011,-1345,468],[658,-1394,-821],[316,124,1713],[763,-989,1221],[-209,-1617,-627],[309,-1103,1318],[725,-461,1521],[858,-853,-1260],[1600,-402,574],[-932,1339,-623],[-1095,1349,180],[1170,1223,433],[-822,851,-1285],[154,-1612,655],[1297,-1065,482],[-1118,-1298,341],[1142,-1266,377],[357,-943,1426],[72,1740,-137],[1332,-1076,345],[-1598,-439,553],[-815,1235,-928],[-328,-1603,611],[1226,828,928],[-1485,-377,839],[1015,-489,-1335],[72,1457,-960],[1672,410,-296],[-1025,-440,-1344],[1600,124,690],[-311,-1704,226],[-482,-1608,-483],[-1326,1096,-300],[1064,-1322,413],[1152,-1162,-611],[-391,1582,-629],[254,1718,191],[568,464,-1585],[264,-129,1722],[149,0,1740],[1154,453,-1230],[-1468,945,59],[-427,1232,-1162],[1647,-116,-571],[-1010,-693,-1245],[734,-1460,615],[1446,-177,963],[-632,-799,-1419],[567,-1601,410],[73,-661,1615],[-576,-1459,769],[943,705,1290],[288,1712,-196],[-131,-68,-1741],[394,-582,1599],[1650,188,-540],[1120,-1196,606],[1042,-1402,9],[159,1566,757],[575,-1410,854],[-117,1568,-760],[-1135,-1062,796],[674,-1437,-728],[-1509,-117,872],[274,1721,-120],[-604,1595,-375],[197,1733,92],[658,1150,-1138],[461,1597,-535],[181,489,-1667],[1591,-651,-310],[-1350,-349,1052],[1444,709,679],[1262,1206,-66],[-69,1616,-659],[-1496,628,645],[1253,909,810],[-752,-1437,647],[-951,1234,-789],[1592,235,-678],[995,-1202,785],[-1035,947,-1040],[-674,1530,-504],[1254,-525,1097],[273,1056,-1364],[1131,-304,1296],[-1249,995,-708],[1075,-951,-995],[530,1632,-329],[-470,1451,-850],[1147,-744,1087],[-663,1606,-184],[-1104,103,-1350],[-165,-1122,1328],[-518,1332,1004],[1677,-445,-200],[125,1634,605],[764,-666,-1423],[-602,-774,1445],[-1304,-417,1085],[-713,614,-1472],[496,-484,-1603],[-1017,1397,255],[-52,-1431,1000],[-755,410,-1521],[946,-360,1423],[1012,-175,-1413],[1145,-317,-1280],[-376,-1394,983],[-1011,1102,-903],[-663,284,-1591],[500,-1326,-1022],[-1540,-501,655],[-1383,-767,742],[-74,-1727,248],[-255,79,-1726],[-438,-723,-1528],[-876,-1357,666],[-1440,112,982],[-470,440,-1624],[-1098,751,1131],[1680,376,-296],[589,1385,-886],[-1361,-750,-798],[1490,-903,-124],[1398,-936,469],[-953,674,-1300],[433,-79,-1690],[-670,-853,1369],[1041,27,-1402],[-721,-821,1363],[1110,1027,-873],[382,-1675,317],[157,-774,1558],[-263,1685,-375],[416,1693,-104],[639,-1475,684],[877,828,1264],[-1651,523,231],[718,-1382,791],[-543,1069,-1270],[1474,536,-769],[746,1321,-865],[660,-519,1532],[-1706,347,147],[-630,1131,-1172],[-538,-1455,802],[-483,1612,-467],[-685,1475,-636],[-990,-532,-1337],[-861,1180,-956],[-1278,668,-986],[774,1565,-48],[1051,-716,-1197],[1509,-561,-678],[1115,622,-1192],[1396,-117,-1044],[1384,-1040,-232],[-424,989,-1375],[-805,320,-1517],[-178,-1372,1066],[-470,-239,1665],[-1541,-193,799],[1248,1000,703],[44,-1367,-1087],[249,-1030,-1388],[95,1474,-932],[601,375,-1597],[50,1725,272],[1724,271,-69],[-395,-1441,-904],[355,-659,1578],[-775,756,-1371],[1536,785,276],[717,112,-1589],[-1224,1134,-515],[1464,-574,761],[1022,-1292,580],[-105,-1266,1199],[-137,1741,-49],[560,-242,1637],[-828,-1516,-262],[633,-91,-1625],[1123,-750,-1107],[462,-355,1647],[436,-506,1614],[-77,-1598,700],[-740,1581,-50],[974,-1293,-655],[-203,-1427,987],[403,-1131,-1269],[-128,-1574,-746],[1015,-1262,-654],[1624,-633,-123],[1260,379,1149],[-712,969,-1267],[-1196,-1266,-134],[-798,-1218,964],[-512,1394,-919],[1213,1166,-469],[625,-1295,-991],[1636,133,597],[991,-232,1420],[1335,-368,-1064],[6,-163,1739],[1252,-1087,-549],[1295,-376,-1111],[-295,-1294,1135],[1666,505,139],[-441,-315,-1660],[759,-1407,704],[-1407,104,-1030],[183,550,1648],[1625,266,582],[-761,481,-1497],[-1496,-383,816],[-1462,-948,120],[-624,-1369,887],[1090,1040,884],[1387,1061,5],[-488,1663,-220],[-15,-1603,693],[-525,1648,241],[365,-1304,1103],[449,1484,-804],[1618,-327,570],[1333,-1085,-311],[-508,-491,1598],[1549,-498,-635],[-1205,-1042,717],[48,-1667,519],[1574,730,-200],[1533,-712,-440],[-652,991,-1282],[1739,-138,-98],[-1269,13,-1200],[1295,-205,-1154],[1651,470,-324],[120,1061,-1383],[1078,1251,-569],[204,1731,-122],[-737,-1316,-880],[-45,1624,-641],[-794,-454,-1488],[-1041,-678,-1228],[-160,833,-1527],[1700,9,400],[-398,1701,18],[-821,1536,136],[956,-909,1145],[1397,942,-460],[-16,1706,-375],[-338,-1633,518],[-11,966,-1455],[-1543,817,50],[-50,166,1738],[343,1549,-730],[-1580,-672,323],[-1622,401,511],[130,1661,523],[-69,-1563,-776],[-690,1561,-371],[742,1572,-173],[-431,175,-1684],[1635,178,-587],[304,1627,-560],[641,-1623,85],[-1451,814,-532],[-342,1008,-1385],[-433,1390,-965],[1678,-250,-415],[235,-698,1584],[-139,1725,238],[1678,-122,-469],[1595,-700,-135],[-433,-561,-1597],[-178,-1530,823],[107,1734,-180],[656,-1576,370],[935,-973,-1109],[-1651,50,-570],[-267,-473,-1660],[78,-1689,440],[1218,1251,28],[1740,-46,-147],[1057,616,-1247],[795,870,1289],[-1673,501,51],[329,981,-1407],[720,583,-1481],[-1302,1143,220],[863,-1411,560],[1524,-819,-241],[828,-1530,-155],[1705,-128,-359],[1522,137,845],[1721,-299,-27],[333,549,-1624],[800,-542,1455],[-713,-1101,-1153],[-1238,-537,-1108],[-1656,444,-333],[-1196,1014,-768],[1607,127,-672],[274,1622,587],[-793,909,-1263],[-1599,498,497],[1336,719,-865],[-317,1677,371],[1540,-807,-170],[22,-74,1745],[-1025,1414,37],[413,-1097,1295],[499,-1429,871],[-7,-1745,77],[1091,-1354,-168],[-882,-171,-1498],[-172,-1451,958],[-1544,608,-544],[1554,-75,-794],[521,-59,1666],[-1688,409,-182],[-1206,-881,905],[-581,-1101,-1225],[-1065,1280,-528],[-1606,263,633],[40,-1746,39],[967,1235,767],[75,1389,-1056],[1598,533,-463],[-87,1675,489],[1723,84,272],[787,1210,-983],[1362,888,-637],[-849,-593,1407],[3,-1147,1317],[-232,-305,-1704],[1270,-1029,616],[-1283,-717,-944],[1647,-581,5],[1189,-1091,-668],[-944,-155,-1462],[-1601,652,-254],[1533,-209,-811],[1492,-908,21],[750,1557,256],[1019,-817,-1159],[197,-1555,770],[549,-344,1622],[629,-1630,-7],[1033,-415,-1345],[901,714,1314],[1391,1054,83],[-1281,-728,938],[-59,1057,-1389],[1331,956,-604],[385,-1519,-772],[1310,1066,-445],[1732,-185,138],[845,-383,-1480],[496,-1246,-1118],[-785,-408,-1506],[1307,-1024,-542],[189,-1726,-194],[-268,1083,-1344],[-331,1684,-323],[1221,-927,-837],[618,-935,1340],[158,-1039,1395],[-611,-599,-1523],[49,1718,312],[1679,430,-218],[94,-1207,1259],[-552,1084,-1253],[-1131,-302,-1297],[-1495,-742,516],[1237,-1082,-593],[478,450,-1619],[1247,-1003,-699],[469,-1076,1293],[990,1221,-761],[-8,-1414,1025],[1642,581,125],[-1564,-596,499],[99,209,-1731],[1273,-288,-1161],[1683,-463,-69],[-1687,-438,-114],[0,748,-1579],[-1066,1383,35],[-1112,-1122,745],[-1159,-734,-1081],[1319,-121,-1138],[348,-840,-1492],[-757,868,-1313],[1290,1016,-594],[-78,820,-1540],[601,134,-1634],[1426,-990,190],[1561,29,-783],[-1623,611,211],[673,-1486,625],[1619,-58,654],[-1624,-488,418],[1245,902,828],[30,974,1450],[-35,-498,-1674],[684,1326,-908],[-591,-957,-1337],[-608,1328,-958],[-693,1259,-992],[-975,1440,-167],[-53,1614,666],[1331,-1131,25],[-85,-1200,1267],[-933,-295,-1447],[-317,-1668,411],[-113,-654,1616],[959,-1459,51],[339,-707,1561],[-1502,838,-305],[842,-1526,-111],[-280,12,-1724],[668,1542,478],[-903,1184,-913],[-1331,-1086,319],[1032,-783,-1171],[909,-1460,-303],[-262,1492,-870],[90,1707,360],[-1589,724,4],[345,1556,714],[869,-1227,888],[-1078,-537,-1265],[1477,-909,-207],[-922,273,-1458],[-964,935,-1117],[1189,1021,-770],[719,1457,-639],[403,1628,487],[1088,-167,-1356],[-1306,1155,103],[1211,-504,-1153],[1177,-567,-1159],[184,1711,-300],[-316,-53,-1717],[-741,-1497,-510],[680,-942,-1304],[837,-1533,26],[1088,973,960],[-745,-1130,1104],[-657,-1378,-849],[12,1631,-624],[324,1692,288],[381,-831,1488],[-563,707,1495],[-490,-1401,-921],[-1674,418,271],[-839,-1532,-18],[954,-1314,643],[-771,1562,128],[1572,-426,-631],[964,685,-1285],[1007,1093,918],[79,-1657,546],[-940,-938,-1135],[1329,149,-1123],[1241,-207,-1211],[333,-1140,-1280],[-913,-523,-1394],[99,-1348,1106],[784,-1073,-1133],[1645,-499,307],[1658,213,-507],[743,429,-1521],[-113,-1702,-378],[-479,-1559,-624],[1685,127,441],[147,-1578,735],[61,1692,431],[1313,-1108,313],[989,-1376,-426],[1336,-902,672],[-282,1720,-111],[1386,-775,-728],[-142,1239,-1223],[-664,-258,-1595],[-200,1735,-16],[1550,220,775],[1497,-674,-597],[-151,-15,-1740],[-367,1154,-1259],[107,1129,1329],[733,37,-1585],[-405,1686,-210],[-1365,853,-678],[-1456,943,205],[-226,1730,-80],[137,-595,-1636],[-868,-1473,-358],[38,-1400,-1043],[108,-1579,738],[1610,-550,-396],[908,1492,41],[1262,167,1196],[1058,-1343,356],[-802,-736,1366],[-1069,1162,-746],[-1315,-950,646],[1276,-1186,124],[-92,-588,-1642],[807,-1305,-835],[166,-1640,576],[1438,-915,381],[-1164,1302,-36],[1624,594,246],[-1038,-1367,-321],[-368,-8,-1708],[526,-1592,490],[898,-1479,241],[1156,-1111,693],[1600,83,-696],[372,1217,-1196],[385,-4,1704],[-6,154,1740],[-1228,-1230,172],[-1249,1153,-402],[-323,1367,-1039],[780,1310,851],[641,-266,-1603],[1637,-608,52],[303,-40,1720],[-1460,-847,450],[-542,1472,-769],[1296,-1115,356],[-1527,-154,833],[-33,-126,-1742],[1334,-707,878],[-1575,-460,600],[-223,-1269,1180],[1222,761,-989],[1626,-234,-593],[-332,436,1659],[57,-1349,1108],[-885,-317,-1472],[1347,-944,-587],[993,-1244,720],[812,1511,332],[-476,1636,382],[1641,276,-530],[1419,618,-810],[-151,1438,-980],[-1093,1361,75],[1290,-1020,588],[1454,968,-26],[148,669,-1607],[-325,1644,-492],[-1474,693,-631],[-514,-254,1650],[307,-1574,-693],[-220,1733,34],[116,1278,-1185],[752,-1485,-527],[-1601,155,682],[924,-1270,-764],[-589,1642,-95],[1000,780,1200],[-666,-1551,-450],[509,-862,1431],[914,-1456,308],[-472,-1600,-519],[203,590,-1632],[-191,-1731,136],[-816,1425,-595],[-461,1663,-268],[-650,-979,1292],[1694,426,-33],[972,-1327,-586],[-1074,-1080,855],[-632,-1276,-1011],[242,-1727,-101],[67,-747,1578],[1659,44,-546],[-165,-1204,1255],[1225,-290,-1211],[-909,578,-1374],[712,1219,-1029],[-72,-1675,-489],[899,-1495,-95],[-1154,107,1306],[-556,1168,-1173],[1562,-762,-173],[321,930,-1443],[908,-938,-1160],[-430,841,-1469],[-1662,512,161],[-618,-619,1512],[-1073,-1268,-540],[-419,-350,1659],[654,1459,-703],[-271,-842,-1506],[510,1660,191],[-1710,300,194],[-801,1551,-64],[-1018,303,-1386],[107,-1424,1006],[-788,1549,-173],[1608,-44,-681],[766,-1123,-1096],[1095,614,-1215],[1126,1178,629],[-770,1567,36],[18,-1108,1350],[173,-1516,850],[1090,-857,1062],[1115,-1265,455],[1677,286,-395],[-823,1400,-642],[-1011,1168,-815],[136,1740,71],[1254,522,-1098],[1506,-742,482],[-132,115,-1738],[-615,518,-1551],[-1518,549,-668],[-1289,1147,272],[1495,-739,520],[-1310,-518,-1032],[-1574,672,-347],[526,172,-1657],[-914,1441,371],[-199,-1226,-1228],[1126,-1315,-232],[1054,-607,-1253],[-1199,-647,-1093],[-565,-1628,285],[407,-418,1646],[1134,-625,1172],[-107,-1721,282],[-1024,924,-1071],[1692,171,-400],[1532,750,-376],[1004,-1201,-773],[-117,-1709,341],[-88,1278,-1187],[652,1620,48],[354,-671,-1573],[-1656,-392,-395],[211,1697,357],[1143,656,-1146],[1564,735,-255],[1170,633,1131],[661,-207,-1604],[231,1631,-580],[1020,1141,-841],[1155,-1176,578],[1119,-904,-990],[-1186,-1113,-636],[-723,1526,-447],[-647,-1533,530],[-223,-1524,-824],[-844,1518,188],[1379,-923,546],[1008,-1425,53],[838,-1312,791],[1224,82,-1243],[-451,238,-1671],[1733,94,-197],[213,-792,1542],[1348,-1083,246],[422,-1679,232],[312,-1230,-1200],[-834,-1182,-979],[1064,-1367,226],[-105,-1021,1413],[1165,1027,-799],[1719,172,-258],[493,-732,-1507],[192,1719,241],[-1041,-212,-1386],[-17,-701,-1600],[-809,-137,1542],[1706,310,-212],[749,-1567,187],[1389,53,-1057],[-1369,1012,-390],[85,-1475,-932],[-1263,1049,-596],[-578,-1492,-700],[-1091,-202,1349],[56,-1171,1295],[-1598,-415,571],[1096,1270,486],[-867,-1515,50],[-774,1358,-779],[518,1052,-1294],[-1478,-249,-896],[-1702,164,359],[1583,-98,-731],[-1575,561,-505],[1007,-1393,311],[-639,1600,-287],[306,347,1684],[258,1545,772],[1118,-886,1008],[-412,-1111,1284],[-1027,549,-1302],[173,202,-1726],[11,1228,-1242],[-1017,-833,1150],[370,-1022,1367],[-187,1714,-279],[1667,54,520],[-499,1009,-1335],[359,-1358,1038],[600,-706,-1481],[-1422,927,-413],[700,-1311,-917],[223,1158,-1288],[131,-415,-1692],[491,-394,-1629],[-760,1032,-1187],[-34,-1148,1316],[23,1687,-454],[1009,-1403,-253],[1390,366,-992],[-788,-606,1436],[804,1404,658],[-1117,763,-1105],[187,-1462,937],[147,622,-1626],[-83,1686,-448],[-980,315,-1411],[-348,1088,-1321],[-787,-22,-1559],[985,503,1352],[1428,754,-666],[847,-1330,750],[-498,-919,1399],[-419,-1634,452],[188,1728,-176],[1428,-78,-1003],[77,-101,-1742],[912,-1490,-9],[860,305,-1489],[693,-1445,-695],[-850,1503,-264],[1178,1238,360],[-688,-625,-1479],[-854,1505,-233],[-759,-826,-1339],[663,-791,-1409],[-506,-1347,-989],[30,-701,1599],[-1193,1268,143],[1201,-148,-1260],[1104,-127,-1348],[586,-1277,-1037],[-346,1694,246],[1564,777,17],[1002,-1142,-861],[1088,-983,949],[1727,-195,178],[-926,761,-1270],[-676,-1497,594],[1482,435,-816],[-62,-1684,461],[-362,1706,100],[1229,-1193,-345],[607,585,-1530],[1596,-579,409],[-255,1624,-592],[1445,-305,-933],[1272,112,-1191],[755,1274,926],[-588,445,-1583],[792,784,1345],[116,-1080,1368],[1533,-786,-288],[338,-1162,-1259],[-408,317,1668],[-523,1015,-1322],[-681,-1013,1250],[77,-1527,845],[1414,5,-1025],[521,1467,-791],[-594,-1631,-199],[-899,1485,-194],[-26,-1698,-410],[869,-1475,348],[-534,1608,426],[-791,384,-1509],[132,-1667,505],[1611,625,-255],[-1574,693,-304],[196,-1179,1274],[1175,750,-1052],[-30,1745,84],[-1638,575,192],[1374,-986,-437],[1421,-345,-955],[-797,-1232,-947],[-259,-138,-1722],[-1243,-292,-1191],[191,1714,278],[1130,1259,433],[-216,-334,1701],[1565,715,302],[458,-170,-1677],[1453,824,-510],[-1515,444,-748],[-1701,384,103],[-179,-1156,1297],[349,1219,1201],[-250,-1440,-957],[-1006,-832,-1160],[-1445,-248,949],[581,-884,-1390],[-725,-1151,1095],[88,-821,1539],[-1496,652,-622],[94,-999,1429],[1139,-261,1298],[97,-439,1688],[1022,-1054,947],[-796,1492,438],[-1357,1079,208],[-486,-1608,478],[-978,1321,-591],[-464,656,-1551],[1649,508,-272],[-289,1663,448],[1016,-1158,823],[-483,1310,-1050],[-857,-1518,114],[1194,-938,863],[1063,-855,-1090],[-554,-1562,551],[620,-1052,1249],[-3,-407,-1699],[824,-775,1330],[411,-1091,-1300],[-497,729,-1507],[-457,-1686,-3],[-968,-869,1166],[1044,-510,-1304],[30,-1740,149],[-678,-1350,877],[1152,-162,-1303],[1127,-1038,-838],[-133,651,-1615],[573,-1491,707],[983,-287,-1415],[-134,-759,-1567],[-51,-1175,-1291],[-1334,1114,-170],[-1682,222,415],[1217,-304,1216],[-1377,642,-862],[1487,720,-568],[-853,1467,412],[1095,-1244,551],[1291,-1169,-135],[1727,262,15],[-57,1423,-1012],[1634,-154,-597],[-1295,-1136,288],[1667,339,-396],[249,-1729,19],[-1471,579,-743],[1698,136,-385],[384,1324,-1073],[230,-1291,-1153],[-488,-1619,-437],[600,1129,-1190],[1601,366,596],[1237,-757,-973],[113,1742,-52],[-1235,1098,-566],[205,374,-1694],[1369,964,498],[-1190,1278,-58],[1466,-212,-926],[483,-1641,353],[135,-1281,1179],[1632,-488,-387],[164,1726,214],[-674,-727,-1438],[1099,-428,-1288],[1207,1076,-660],[73,-735,-1583],[339,855,-1485],[-113,-101,1740],[1500,151,-883],[386,-1565,672],[-410,1537,-722],[802,-404,-1498],[-730,1286,-929],[-1102,1340,-203],[-1129,1328,107],[-1385,-518,-930],[280,-1295,1138],[436,1682,177],[785,-1431,622],[-431,-1253,1138],[-156,-712,1587],[-1256,1176,-300],[-1670,473,-197],[187,-1344,1100],[1349,-736,-830],[734,-60,-1584],[1245,-144,-1217],[286,1484,-876],[-864,1049,-1097],[299,-1717,-115],[1162,-352,-1255],[812,-850,-1292],[-1162,1273,-284],[1437,-845,522],[-1215,1061,-670],[-925,-1348,615],[601,1493,-678],[-1713,-186,287],[249,17,-1729],[1225,-1208,303],[17,1746,38],[1650,-550,165],[221,1663,487],[-1555,327,-725],[855,-1186,955],[552,-924,1375],[1213,-459,1170],[-571,1621,314],[-621,-1619,-211],[115,-1741,85],[-271,-680,-1586],[636,-1512,601],[630,-608,-1512],[-319,-974,1414],[134,-889,1498],[563,-1350,954],[1664,435,307],[1447,613,-762],[1013,-1418,121],[-1696,273,-318],[1668,-323,407],[1659,542,-75],[969,-1249,-742],[739,727,-1406],[-105,866,1513],[551,1171,-1173],[468,-1282,-1090],[117,-1378,-1067],[-371,1666,371],[987,-1441,-26],[-142,-1531,-828],[157,-878,-1502],[-221,-1106,1334],[1614,662,87],[866,1200,-928],[1204,987,792],[1098,-209,-1342],[240,-1182,-1263],[-381,229,-1689],[1352,-857,698],[-42,-1311,-1154],[-827,1538,16],[571,-996,1316],[357,-1235,1183],[-158,1711,314],[1645,402,-427],[250,738,-1563],[258,-1622,-595],[688,156,1598],[222,-1583,-705],[-798,1173,-1019],[-405,1279,-1119],[913,-1132,967],[-260,-1140,-1297],[-122,-1699,388],[-1312,-433,-1068],[111,1537,-821],[-1627,-389,501],[-1074,1206,-666],[-861,1516,-104],[1525,-445,725],[533,-1653,184],[477,-1680,-14],[-1442,-731,661],[-1233,-640,1059],[-420,1659,-348],[-512,1623,-394],[-986,-1329,559],[452,278,1664],[-565,1644,168],[-675,1611,-10],[-247,-1198,1247],[127,-1324,1132],[168,-1700,366],[458,-680,-1542],[1258,-855,858],[189,1646,553],[746,1577,80],[-1609,654,-184],[1467,-800,-509],[510,716,-1509],[-400,-978,1391],[-1271,-855,840],[1584,296,-674],[1578,-329,-673],[-1022,1171,-797],[1433,905,423],[549,-1507,-691],[-1726,-180,200],[332,1343,1066],[808,-865,1284],[-1526,742,-415],[820,-159,1534],[-1064,-490,-1296],[389,-1358,-1027],[837,1272,855],[416,394,-1650],[1466,207,-927],[-873,-1492,251],[333,-985,1403],[-402,500,-1625],[181,1206,-1251],[525,-3,-1666],[-136,-265,-1721],[1341,-303,-1078],[-474,-1224,1153],[-1631,624,-5],[-1527,828,-188],[651,-1402,813],[-57,1648,-575],[281,1684,368],[-1372,757,-772],[-920,1421,-429],[-38,-1694,424],[-1563,650,-429],[-136,1585,722],[855,-1101,1052],[1346,-192,-1096],[-1343,-681,-886],[-1518,-314,805],[102,-1422,-1010],[1535,802,-223],[1466,-935,166],[-18,-65,-1746],[-218,1682,416],[827,-1494,367],[119,1667,-508],[1675,-390,303],[-1102,-1023,-889],[-121,-1608,670],[677,-1439,722],[-946,82,-1466],[169,-710,1587],[1443,-868,463],[1223,685,-1042],[634,-830,1400],[475,307,-1653],[-439,902,-1430],[-120,-1074,-1372],[-189,-1412,-1010],[194,939,-1460],[1419,-959,-345],[400,1608,554],[1686,456,25],[-722,1500,-527],[-748,-1553,-284],[-355,-1613,-567],[-1687,416,179],[18,-177,-1738],[-419,-1533,-725],[-204,-167,-1727],[-223,-1557,-760],[74,1654,555],[1020,1272,-625],[895,-527,-1404],[1619,-586,294],[61,1699,-402],[-1111,490,-1255],[1298,296,-1131],[-958,-1189,848],[717,1105,-1146],[-1487,762,-509],[352,-1670,374],[-1101,-1288,424],[-1071,98,1377],[641,-1172,-1126],[315,1129,1295],[741,922,1285],[1738,125,-125],[840,-1230,-912],[1713,-112,322],[-1126,1240,-496],[296,-1614,598],[-591,292,1618],[-347,-1336,1070],[-1180,0,-1287],[863,1375,-644],[-88,110,-1741],[-554,1593,454],[-507,-184,1661],[-55,-547,1658],[1276,-784,-899],[-712,533,-1503],[1318,-1063,-430],[-780,1280,-897],[24,1741,137],[-910,797,-1260],[458,-703,1532],[693,-1594,-168],[1447,973,-93],[1517,-461,-733],[693,-401,1552],[-304,1654,472],[-1151,-26,-1314],[1523,352,-780],[758,-346,1535],[354,-1259,-1158],[664,-539,1523],[-1228,1225,205],[-554,1340,-974],[1713,160,301],[52,-1609,678],[-8,922,-1484],[264,1677,-411],[-1682,310,356],[963,135,-1451],[1694,-97,417],[-95,-1741,105],[-1143,851,-1009],[-354,-870,1473],[-176,1369,1070],[653,-145,-1614],[-455,-1196,1189],[-1364,-377,-1023],[676,1525,-520],[-587,-380,-1600],[509,1501,734],[1014,-1017,-994],[-99,-834,-1532],[1172,-973,-855],[-1684,363,286],[-1308,-1031,528],[1388,854,-628],[-250,1633,568],[1656,205,-517],[-265,-1668,446],[1701,-51,-394],[-1514,779,390],[168,-1739,20],[1729,-43,-246],[626,-1096,-1207],[1261,-1184,-243],[494,-1609,467],[1636,101,-604],[-213,784,-1546],[1514,-781,386],[-1577,-311,685],[1498,-301,-846],[269,466,-1662],[-178,-1647,-554],[-961,-1138,-913],[-284,-1567,717],[-661,-1484,-641],[-608,1539,-560],[-547,-1450,-805],[174,-1731,154],[-237,-357,-1693],[1459,310,-909],[-444,1682,156],[962,-692,-1283],[-116,1743,-6],[-1070,1363,219],[1113,1142,-712],[1498,871,-224],[-1006,-590,-1300],[-1052,1032,-937],[-403,-1518,764],[578,-1627,265],[-84,-404,1697],[849,1083,-1076],[-1070,-526,1277],[1494,-697,-577],[-209,-834,-1520],[-1142,1263,-388],[-1217,-99,1249],[1096,-1204,-632],[728,1144,-1101],[548,-1426,846],[-1158,896,-952],[1526,850,14],[331,-1026,-1374],[-1612,67,669],[422,1587,-595],[14,1728,-253],[-60,-1648,576],[-48,1553,-798],[-1510,-686,548],[-55,-752,1576],[-889,-1391,570],[-29,1671,508],[313,-1164,1264],[1605,3,-690],[-25,-747,-1579],[1512,-868,107],[1702,-209,332],[267,1726,-25],[-1025,1411,93],[356,-934,-1433],[-930,1473,130],[-1160,-318,1266],[1349,1108,66],[378,1686,259],[-727,1475,590],[-1164,-1022,-807],[-129,-678,-1605],[-1546,640,501],[887,-636,1363],[-91,-1131,1328],[-643,237,-1607],[-266,-1640,539],[-1416,1016,-114],[1138,-1273,-367],[310,-1709,183],[864,1406,572],[-1535,-595,583],[1171,1107,674],[-1447,480,-853],[-1478,204,-908],[862,-175,-1509],[166,1676,465],[339,-390,-1669],[-30,-854,-1523],[-459,-1681,114],[1651,-541,-177],[-628,1378,-870],[359,-486,-1639],[1593,449,-557],[-1452,-908,344],[-29,-827,1538],[-78,1327,-1133],[1398,969,-395],[-1077,-424,-1308],[-1211,525,-1144],[476,-1644,349],[-1467,948,-36],[205,-494,-1663],[-458,1575,-600],[199,1559,-762],[135,-1151,1306],[1276,809,877],[119,-340,1709],[-1526,-735,427],[1510,-269,835],[-728,-447,-1523],[1593,-656,290],[-728,-1205,1033],[15,-958,1461],[1230,-1027,695],[-1106,1313,321],[716,1498,543],[1542,-605,554],[-459,1685,13],[16,-1614,-667],[1433,-993,105],[-74,-1634,-613],[1486,-398,-827],[-1184,-339,-1239],[1606,-684,-63],[-732,1182,-1057],[-1081,-1315,-390],[1473,-495,798],[938,-827,-1219],[148,-163,1733],[1719,266,163],[-690,1566,351],[1734,-182,-110],[-1246,-1064,-603],[-422,-1329,1052],[775,-998,-1206],[-745,1506,477],[-1344,537,-978],[1107,-1347,100],[-235,1581,-704],[888,-1177,-937],[-55,-278,1724],[-541,1547,604],[-116,-1339,1116],[-1681,-88,468],[-1697,87,405],[-253,-1726,-95],[538,-296,-1635],[-877,164,-1501],[-903,-1438,-408],[-1395,-941,468],[-315,-1718,15],[1476,898,-257],[-735,-1585,19],[-1560,694,370],[393,-316,-1672],[951,1446,-238],[-286,1465,-908],[44,1588,725],[1387,1027,267],[254,-577,-1629],[1570,760,-93],[1578,-536,-522],[-1617,-163,641],[-849,543,-1427],[-1061,-977,-985],[-692,-1371,831],[1254,1193,-236],[-57,1740,-141],[-1674,499,39],[526,173,-1657],[1377,-749,770],[1273,-608,-1030],[81,-1223,-1244],[-318,-1688,-318],[-1197,1267,114],[1537,-793,244],[808,-1234,935],[-344,-1010,-1383],[507,1642,-311],[-1024,-1222,714],[-932,1469,-151],[832,1536,-2],[-1129,1172,-634],[100,-1327,-1131],[557,1247,-1089],[-142,-940,1465],[-231,-1491,879],[-770,-420,-1510],[1654,-350,-440],[286,1359,-1060],[15,-1081,-1372],[216,-794,-1541],[1376,-586,-902],[1380,-899,-579],[838,-587,-1415],[-967,-1448,135],[-641,-1606,247],[611,-1620,-234],[336,-1685,-313],[664,-1469,-672],[1090,163,-1355],[-515,1489,-754],[-690,-1448,690],[236,-1725,-136],[1306,1143,-200],[263,-1463,-918],[-1427,991,-180],[-669,-127,-1609],[-1004,-710,1240],[-902,1376,-585],[832,766,-1331],[331,-710,1561],[1586,-452,577],[531,-303,-1636],[-677,-1019,-1246],[-1364,41,-1091],[330,-1191,-1234],[-1226,-212,1226],[1633,597,171],[1619,30,-654],[-409,-1213,-1188],[-533,273,1641],[144,554,-1650],[1595,568,-427],[-1120,-1338,-78],[891,1497,125],[-422,-626,1575],[1373,-121,1073],[385,-1376,1004],[867,212,1502],[1330,-452,-1039],[1424,539,855],[1743,-60,91],[939,-481,1392],[1071,-1376,-93],[485,766,1493],[-1645,-568,-143],[-418,1002,1368],[0,-1448,-977] ];
+	var craterd = [ 26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,34,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,39,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,41,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,42,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,43,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,44,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,45,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,47,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,51,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,52,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,53,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,54,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,56,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,57,58,58,58,58,58,58,58,58,58,58,58,58,58,58,58,58,58,58,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,59,60,60,60,60,60,60,60,60,60,60,60,60,60,60,60,60,60,60,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,61,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,62,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,63,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,67,67,67,67,67,67,67,67,67,67,67,67,67,67,67,67,68,68,68,68,68,68,68,68,68,68,68,68,68,68,68,68,68,68,68,68,68,68,68,68,68,68,69,69,69,69,69,69,69,69,69,69,69,69,69,69,69,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,70,71,71,71,71,71,71,71,71,71,71,71,71,71,71,72,72,72,72,72,72,72,72,72,72,72,72,72,72,72,72,73,73,73,73,73,73,73,73,73,73,74,74,74,74,74,74,74,74,74,74,74,74,75,75,75,75,75,75,75,75,75,75,75,75,75,76,76,76,76,76,76,76,76,76,76,76,76,77,77,77,77,77,77,77,77,77,77,77,77,77,77,77,78,78,78,78,78,78,78,78,78,78,78,78,78,79,79,79,79,79,79,79,79,79,79,79,79,80,80,80,80,80,80,81,81,81,81,81,81,81,81,81,81,81,81,82,82,82,82,82,82,82,82,82,82,83,83,83,83,83,83,83,83,83,83,83,84,84,84,84,84,84,84,84,84,84,84,84,84,85,85,85,85,85,85,86,86,86,86,86,86,87,87,87,87,87,87,87,87,87,87,87,87,87,88,88,88,88,88,88,88,88,88,88,88,88,89,89,89,89,89,89,89,89,89,90,90,90,90,90,90,91,91,91,91,91,91,91,91,91,91,91,91,91,92,92,92,92,92,92,93,93,93,93,93,93,93,93,93,93,93,93,93,94,94,94,94,94,94,94,94,94,94,94,94,94,95,95,95,95,95,95,96,96,96,96,96,96,96,96,97,97,97,97,97,97,97,97,97,97,98,98,98,98,98,98,98,98,98,99,99,99,99,100,100,100,100,100,100,100,100,100,101,101,101,101,101,102,102,102,102,102,102,102,102,103,103,103,103,103,103,104,104,104,104,104,104,105,105,105,105,107,107,107,107,107,108,108,108,108,108,108,109,109,109,110,110,110,110,111,111,111,112,112,113,113,113,113,113,113,113,113,114,114,114,114,114,115,115,115,115,115,115,116,116,117,117,117,117,117,118,119,119,120,120,120,121,121,121,121,121,121,122,122,122,122,123,123,124,124,125,125,125,126,126,126,126,126,127,127,127,127,127,128,129,129,129,129,130,130,131,131,133,133,134,134,135,135,135,136,137,137,137,137,137,138,138,139,139,141,143,143,144,144,145,145,145,145,146,148,150,150,152,153,154,155,155,157,157,158,159,160,162,162,162,163,164,164,164,166,170,170,172,172,173,173,174,179,179,179,181,181,181,184,184,186,186,192,199,200,201,211,212,212,215,218,218,222,227,230,231,232,233,236,240,241,259,261,300,300,310,316,319,325,329,335,335,337,345,378,423,425,440,445,500,500,500,524,536,560,570,580,590,600,600,600,620,630,650,690,690,700,700,700,740,740,860,880,920,930,1160,2500];
+				
+	// labels
+	var totalGeometry = new THREE.Geometry();
+	var material = new THREE.MeshBasicMaterial( { color: 0xffeeee, wireframe: true } );
+	for ( var i = 0; i < 2717; i++ ) {
+		var position = new THREE.Vector3;
+		position.x=craterxyz[i][0]*1.004;
+		position.y=craterxyz[i][1]*1.004;
+		position.z=craterxyz[i][2]*1.004;
+					
+		var radius=0.5*craterd[i];
+		
+		if (radius>200) radius=10;
+		
+		var craterGeometry = new THREE.CylinderGeometry(radius, radius, 0, 16, 1);
+		var craterMesh = new THREE.Mesh(craterGeometry);
+					
+		var axis = new THREE.Vector3(0, 1, 0);
+		craterMesh.quaternion.setFromUnitVectors(axis, position.clone().normalize());
+		craterMesh.position.copy(position.clone().multiplyScalar(1));
+					
+		//console.log(objects[i].position);
+		totalGeometry.domlabel = document.createElement( 'div' );
+		totalGeometry.domlabel.innerHTML = cratername[i];
+		totalGeometry.domlabel.style.display = 'none';
+		totalGeometry.domlabel.style.position = 'absolute';
+		totalGeometry.domlabel.style.color = 'blue';
+		document.getElementsByTagName( 'body' )[0].appendChild( totalGeometry.domlabel );
+
+		craterMesh.updateMatrix();
+		totalGeometry.merge(craterMesh.geometry, craterMesh.matrix);
+	}
+	var craterMeshAll = new THREE.Mesh(totalGeometry, material);
+	//scene.add( craterMeshAll );
+}
+			
+function onWindowResize() {
+	var WIDTH = window.innerWidth;
+	var HEIGHT = window.innerHeight;
+	
+	renderer.setSize(WIDTH, HEIGHT);
+	camera.aspect = WIDTH / HEIGHT;
+	camera.updateProjectionMatrix();
+}
+
+// update label positions in the loop
+function update_labels() {
+	var x_min = 0;
+	var y_min = 0;
+	var x_max = window.innerWidth;
+	var y_max = window.innerHeight;
+	var x_mid = window.innerWidth / 2;
+	var y_mid = window.innerHeight / 2;
+	for ( var i = 0; i < objects.length; i ++ ) {
+		var pos = get_screen_xy( objects[i].position, camera );
+		var sp=Math.abs(objects[i].position.x*light.position.x+objects[i].position.y*light.position.y+objects[i].position.z*light.position.z)/objects[i].position.length()/light.position.length();
+					
+		camera.getWorldDirection( cameravector );
+					
+		var spc=(objects[i].position.x*cameravector.x+objects[i].position.y*cameravector.y+objects[i].position.z*cameravector.z)/objects[i].position.length()/cameravector.length();
+				
+		if (sp<0.2&&spc<0.0)
+		{
+			objects[i].domlabel.style.left = -20+pos.x+ 'px';
+			objects[i].domlabel.style.top = +10+pos.y+ 'px';
+		}
+		else
+		{
+			objects[i].domlabel.style.display = 'block';
+			objects[i].domlabel.style.left = 0+ 'px';
+			objects[i].domlabel.style.top = 0+ 'px';
+		}
+	}
+}
+			
+function get_screen_xy( position, camera ) {
+	var vector = new THREE.Vector3();
+	vector.set( position.x, position.y, position.z );
+	vector.project( camera );
+	return { x: (vector.x + 1)/2 * window.innerWidth,
+		y:  -(vector.y - 1)/2 * window.innerHeight };
+	}
+
+//
+
+function animate() {
+	//delta = clock.getDelta();
+	requestAnimationFrame( animate );
+	controls.update();
+	//update_labels();
+	render();
+}
+
+function render() {
+	renderer.render( scene, camera );
+}
+			
+function day2000(y, m, d, h) {
+	var d1, b, c, greg;
+	greg = y*10000 + m*100 + d;
+	if (m == 1 || m == 2) {
+		y = y - 1;
+		m = m + 12;
+	}
+	//  reverts to Julian calendar before 4th Oct 1582
+	//  no good for UK, America or Sweeden!
+
+	if (greg > 15821004) {
+		a = Math.floor(y/100);
+		b = 2 - a  + Math.floor(a/4)
+	}
+	else {
+		b = 0;
+	}
+	c = Math.floor(365.25 * y);
+	d1 = Math.floor(30.6001 * (m + 1));
+	return (b + c + d1 -730550.5 + d + h/24);
+} 
+
+//
+//	Leap year detecting function (gregorian calendar)
+//  returns 1 for leap year and 0 for non-leap year
+//
+
+function isleap(y) {
+	var a;
+	//	assume not a leap year...
+	a = 0;
+	//	...flag leap year candidates...
+	if (y % 4 == 0) a = 1;
+	//	...if year is a century year then not leap...
+	if (y % 100 ==0 ) a = 0;
+	//	...except if century year divisible by 400...
+	if (y % 400 == 0) a = 1;
+	//	...and so done according to Gregory's wishes 
+	return a;
+}
+
+//
+//	Month and day number checking function
+//	This will work OK for Julian or Gregorian
+//	providing isleap() is defined appropriately
+//	Returns 1 if Month and Day combination OK,
+//	and 0 if month and day combination impossible
+//
+function goodmonthday(y, m, d) {
+	var a, leap;
+	leap = isleap(y); 
+	//	assume OK
+	a = 1;
+	//	first deal with zero day number!
+	if (d == 0) a = 0;
+	//	Sort Feburary next
+	if ((m==2) && (leap ==1) && (d > 29)) a= 0;
+	if ((m==2) && (d > 28) && (leap ==0))	a = 0;
+	//	then the rest of the months - 30 days...
+	if(((m==4) || (m == 6) || (m == 9) || (m==11)) && d > 30) a = 0;
+	//	...31 days...	
+	if (d > 31) a = 0;
+	//	...and so done
+	return a;
+}	
+
+//
+// Trigonometric functions working in degrees - this just
+// makes implementing the formulas in books easier at the
+// cost of some wasted multiplications.
+// The 'range' function brings angles into range 0 to 360,
+// and an atan2(x,y) function returns arctan in correct
+// quadrant. ipart(x) returns smallest integer nearest zero
+//
+
+function dsin(x) {
+	return Math.sin(Math.PI / 180 * x)
+}
+
+function dcos(x) {
+	return Math.cos(Math.PI / 180 * x)
+}
+
+function dtan(x) {
+	return Math.tan(Math.PI / 180 * x)
+}
+
+function dasin(x) {
+	return 180/ Math.PI * Math.asin(x)
+}
+
+function dacos(x) {
+	return 180/ Math.PI * Math.acos(x)
+}
+
+function datan(x) {
+	return 180/ Math.PI * Math.atan(x)
+}
+
+function datan2(y, x) {
+	var a;
+	if ((x == 0) && (y == 0)) {
+		return 0;
+	}
+	else	{
+		a = datan(y / x);
+		if (x < 0) {
+			a = a + 180; 
+		}
+		if (y < 0 && x > 0) {
+			a = a + 360;
+		}
+		return a;
+	}
+}
+
+function ipart(x) {
+	var a;
+	if (x> 0) {
+		a = Math.floor(x);
+	}
+	else {
+		a = Math.ceil(x);
+	}	
+	return a;
+}
+
+function range(x) {
+	var a, b
+	b = x / 360;
+	a = 360 * (b - ipart(b));
+	if (a  < 0 ) {
+		a = a + 360
+	}
+	return a
+}
+
+// this is taken from:
+// http://www.stargazing.net/kepler/jsmoon.html		
+function doCalcs(g) {
+	var g, days,t ,L1, M1, C1, V1, Ec1, R1, Th1, Om1, Lam1, Obl, Ra1, Dec1;
+	var F, L2, Om2, M2, D, R2, R3, Bm, Lm, HLm, HBm, Ra2, Dec2, W, X, Y, A; 
+	var Co, SLt, Psi, Il, K, P1, P2, y, m, d, bit, h, min, bk;
+	//
+	//	Get date and time code from user, isolate the year, month, day and hours
+	//	and minutes, and do some basic error checking! This only works for AD years
+	//
+	g;
+	y = Math.floor(g / 10000);
+	m = Math.floor( (g - y*10000) / 100);
+	d = Math.floor(g - y*10000 - m*100 );
+	bit = (g - Math.floor(g))*100;
+	h = Math.floor(bit);
+	min = Math.floor(bit*100 - h * 100 + 0.5);
+	//
+	//	primative error checking - accounting for right number of
+	//	days per month including leap years. Using bk variable to 
+	//	prevent multiple alerts. See functions isleap(y) 
+	//	and goodmonthday(y, m, d).
+	//
+	bk = 0;
+	if(g < 16000000) {	
+		bk = 1;
+		alert("Routines are not accurate enough to work back that" + 
+		" far - answers are meaningless!");
+	}
+	if(g > 23000000) {
+		bk = 1;	
+		alert("Routines are not accurate enough to work far into the future" + 
+		" - answers are meaningless!");
+	}	
+	if( ((m<1) || (m>12)) && (bk !=1)) {
+		bk = 1;
+		alert("Months are not right - type date again");
+	}
+	if((goodmonthday(y, m, d) ==0) && (bk !=1)) {
+		bk = 1;
+		alert("Wrong number of days for the month or not a leap year - type date again");
+	}
+	if ((h>23) && (bk != 1)) {
+		bk = 1;
+		alert("Hours are not right - type date again");
+	}
+	if((min>59) && (bk !=1)) {
+		alert("Minutes are not right - type date again");
+	}
+	//
+	//	Get the number of days since J2000.0 using day2000() function
+	//
+	days = day2000(y, m, d, h + min/60);
+	t = days / 36525;
+
+	//
+	//	Sun formulas
+	//
+	//	L1	- Mean longitude
+	//	M1	- Mean anomaly
+	//	C1	- Equation of centre
+	//	V1	- True anomaly
+	//	Ec1	- Eccentricity 
+	//	R1	- Sun distance
+	//	Th1	- Theta (true longitude)
+	//	Om1	- Long Asc Node (Omega)
+	//	Lam1- Lambda (apparent longitude)
+	//	Obl	- Obliquity of ecliptic
+	//	Ra1	- Right Ascension
+	//	Dec1- Declination
+	//
+
+	L1 = range(280.466 + 36000.8 * t);
+	M1 = range(357.529+35999*t - 0.0001536* t*t + t*t*t/24490000);
+	C1 = (1.915 - 0.004817* t - 0.000014* t * t)* dsin(M1);	 
+	C1 = C1 + (0.01999 - 0.000101 * t)* dsin(2*M1);
+	C1 = C1 + 0.00029 * dsin(3*M1);
+	V1 = M1 + C1;
+	Ec1 = 0.01671 - 0.00004204 * t - 0.0000001236 * t*t;
+	R1 = 0.99972 / (1 + Ec1 * dcos(V1));
+	Th1 = L1 + C1;
+	Om1 = range(125.04 - 1934.1 * t);
+	Lam1 = Th1 - 0.00569 - 0.00478 * dsin(Om1);
+	Obl = (84381.448 - 46.815 * t)/3600;
+	Ra1 = datan2(dsin(Th1) * dcos(Obl) - dtan(0)* dsin(Obl), dcos(Th1));
+	Dec1 = dasin(dsin(0)* dcos(Obl) + dcos(0)*dsin(Obl)*dsin(Th1));
+
+	//
+	//	Moon formulas
+	//
+	//	F 	- Argument of latitude (F)
+	//	L2 	- Mean longitude (L')
+	//	Om2 - Long. Asc. Node (Om')
+	//	M2	- Mean anomaly (M')
+	//	D	- Mean elongation (D)
+	//	D2	- 2 * D
+	//	R2	- Lunar distance (Earth - Moon distance)
+	//	R3	- Distance ratio (Sun / Moon)
+	//	Bm	- Geocentric Latitude of Moon
+	//	Lm	- Geocentric Longitude of Moon
+	//	HLm	- Heliocentric longitude
+	//	HBm	- Heliocentric latitude
+	//	Ra2	- Lunar Right Ascension
+	//	Dec2- Declination
+	//
+
+	F = range(93.2721 + 483202 * t - 0.003403 * t* t - t * t * t/3526000);
+	L2 = range(218.316 + 481268 * t);
+	Om2 = range(125.045 - 1934.14 * t + 0.002071 * t * t + t * t * t/450000);
+	M2 = range(134.963 + 477199 * t + 0.008997 * t * t + t * t * t/69700);
+	D = range(297.85 + 445267 * t - 0.00163 * t * t + t * t * t/545900);
+	D2 = 2*D;
+	R2 = 1 + (-20954 * dcos(M2) - 3699 * dcos(D2 - M2) - 2956 * dcos(D2)) / 385000;
+	R3 = (R2 / R1) / 379.168831168831;
+	Bm = 5.128 * dsin(F) + 0.2806 * dsin(M2 + F);
+	Bm = Bm + 0.2777 * dsin(M2 - F) + 0.1732 * dsin(D2 - F);
+	Lm = 6.289 * dsin(M2) + 1.274 * dsin(D2 -M2) + 0.6583 * dsin(D2); 
+	Lm = Lm + 0.2136 * dsin(2*M2) - 0.1851 * dsin(M1) - 0.1143 * dsin(2 * F); 
+	Lm = Lm +0.0588 * dsin(D2 - 2*M2) 
+	Lm = Lm + 0.0572* dsin(D2 - M1 - M2) + 0.0533* dsin(D2 + M2);
+	Lm = Lm + L2;
+	Ra2 = datan2(dsin(Lm) * dcos(Obl) - dtan(Bm)* dsin(Obl), dcos(Lm));
+	Dec2 = dasin(dsin(Bm)* dcos(Obl) + dcos(Bm)*dsin(Obl)*dsin(Lm));
+	HLm = range(Lam1 + 180 + (180/Math.PI) * R3 * dcos(Bm) * dsin(Lam1 - Lm));
+	HBm = R3 * Bm;
+
+
+	//
+	//	Selenographic coords of the sub Earth point
+	//	This gives you the (geocentric) libration 
+	//	approximating to that listed in most almanacs
+	//	Topocentric libration can be up to a degree
+	//	different either way
+	//
+	//	Physical libration ignored, as is nutation.
+	//
+	//	I	- Inclination of (mean) lunar orbit to ecliptic
+	//	EL	- Selenographic longitude of sub Earth point
+	//	EB	- Sel Lat of sub Earth point
+	//	W	- angle variable
+	//	X	- Rectangular coordinate
+	//	Y	- Rectangular coordinate
+	//	A	- Angle variable (see Meeus ch 51 for notation)
+	//
+	I = 1.54242;
+	W = Lm - Om2;
+	Y = dcos(W) * dcos(Bm);
+	X = dsin(W) * dcos(Bm) * dcos(I) - dsin(Bm) * dsin(I);
+	A = datan2(X, Y);
+	EL = A - F;
+	EB = dasin(-dsin(W) * dcos(Bm) * dsin(I) - dsin(Bm) * dcos(I));
+
+	//
+	//	Selenographic coords of sub-solar point. This point is
+	//	the 'pole' of the illuminated hemisphere of the Moon
+	//  and so describes the position of the terminator on the 
+	//  lunar surface. The information is communicated through
+	//	numbers like the colongitude, and the longitude of the
+	//	terminator.
+	//
+	//	SL	- Sel Long of sub-solar point
+	//	SB	- Sel Lat of sub-solar point
+	//	W, Y, X, A	- temporary variables as for sub-Earth point
+	//	Co	- Colongitude of the Sun
+	//	SLt	- Selenographic longitude of terminator 
+	//	riset - Lunar sunrise or set
+	//
+
+	W = range(HLm - Om2);
+	Y = dcos(W) * dcos(HBm);
+	X = dsin(W) * dcos(HBm) * dcos(I) - dsin(HBm) * dsin(I);
+	A = datan2(X, Y);
+	SL = range(A - F);
+	SB = dasin(-dsin(W) * dcos(HBm) * dsin(I) - dsin(HBm) * dcos(I));
+
+	if (SL < 90) {
+		Co = 90 - SL;
+	}
+	else	{
+		Co = 450 - SL;
+	}
+
+	if ((Co > 90) && (Co < 270)) {
+		SLt = 180 - Co;
+	}
+	else	{
+		if	(Co < 90) {
+			SLt = 0 - Co;
+		}
+		else	{
+			SLt = 360 - Co;
+		}
+	}
+
+	//
+	//	Calculate the illuminated fraction, the position angle of the bright
+	//	limb, and the position angle of the Moon's rotation axis. All position
+	//	angles relate to the North Celestial Pole - you need to work out the
+	//  'Parallactic angle' to calculate the orientation to your local zenith.
+	//
+
+	//	Iluminated fraction
+	A = dcos(Bm) * dcos(Lm - Lam1);
+	Psi = 90 - datan(A / Math.sqrt(1- A*A));
+	X = R1 * dsin(Psi);
+	Y = R3 - R1* A;
+	Il = datan2(X, Y);
+	K = (1 + dcos(Il))/2;
+
+	//	PA bright limb
+	X = dsin(Dec1) * dcos(Dec2) - dcos(Dec1) * dsin(Dec2) * dcos(Ra1 - Ra2);
+	Y = dcos(Dec1) * dsin(Ra1 - Ra2);
+	P1 = datan2(Y, X);
+
+	//	PA Moon's rotation axis
+	//	Neglects nutation and physical libration, so Meeus' angle
+	//	V is just Om2
+	X = dsin(I) * dsin(Om2);
+	Y = dsin(I) * dcos(Om2) * dcos(Obl) - dcos(I) * dsin(Obl);
+	W = datan2(X, Y);
+	A = Math.sqrt(X*X + Y*Y) * dcos(Ra2 - W);
+	PA = dasin(A / dcos(EB));	
+}
+</script>
+</body>
+</html>
