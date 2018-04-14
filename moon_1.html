@@ -167,7 +167,7 @@ function init() {
 	controls.addEventListener( 'change', render );
 	window.addEventListener('change', inputchange );
 	window.addEventListener( 'dblclick', calculateIntersection, false );
-	window.addEventListener( 'touch', calculateIntersection, false );
+	window.addEventListener( 'touch', calculateIntersectionTouch, false );
 	
 	window.addEventListener('touchstart', function onFirstTouch() {
 	  TOUCHDEVICE = true;
@@ -241,7 +241,7 @@ function calculateIntersection( event ) {
 	var ispoint;
 	var mouse = new THREE.Vector2();
 	
-	console.log("double click: find intersection");
+	console.log("calculateIntersection, with touchdevice:",TOUCHDEVICE);
 	// calculate mouse position in normalized device coordinates
 	// (-1 to +1) for both components
 
@@ -256,6 +256,8 @@ function calculateIntersection( event ) {
 		mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
 		mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
 	}
+	
+	console.log("calculateIntersection, with touchdevice:",TOUCHDEVICE,"and mouse:",mouse);
 	
 	// update the picking ray with the camera and mouse position
 	raycaster.setFromCamera( mouse, camera );
@@ -332,6 +334,96 @@ function calculateIntersection( event ) {
 	//scene.add( craterMeshAll );
 }
 
+function calculateIntersectionTouch( event ) {
+	event.preventDefault();
+	
+	var ispoint;
+	var mouse = new THREE.Vector2();
+	
+	console.log("calculateIntersection, with touchdevice:",TOUCHDEVICE);
+	// calculate mouse position in normalized device coordinates
+	// (-1 to +1) for both components
+
+	var rect = document.getBoundingClientRect();
+	mouse.x = + ( (event.targetTouches[ 0 ].pageX - rect.left) / rect.width ) * 2 - 1;
+	mouse.y = - ( (event.targetTouches[ 0 ].pageY - rect.top) / rect.height ) * 2 + 1;
+
+	console.log("calculateIntersection, with touchdevice:",TOUCHDEVICE,"and mouse:",mouse);
+	
+	// update the picking ray with the camera and mouse position
+	raycaster.setFromCamera( mouse, camera );
+
+	// calculate objects intersecting the picking ray
+	var intersects = raycaster.intersectObjects( scene.children );
+
+	ispoint=intersects[ 0 ].point;
+//	ispoint=intersects[ 1 ].point; this is the other end
+	console.log('intersection at:',ispoint);
+
+	// labels
+	var totalGeometry = new THREE.Geometry();
+	var material = new THREE.MeshBasicMaterial( { color: 0xffeeee, wireframe: true } );
+   // FIXME
+	
+	group = new THREE.Group();	
+
+	for ( var i = 0; i < 2717; i++ ) {
+		var position = new THREE.Vector3;
+
+		position.x=craterxyz[i][0]*1.004;
+		position.y=craterxyz[i][1]*1.004;
+		position.z=craterxyz[i][2]*1.004;
+		
+		var isdist=position.sub(ispoint).length(); 
+
+		position.x=craterxyz[i][0]*1.004;
+		position.y=craterxyz[i][1]*1.004;
+		position.z=craterxyz[i][2]*1.004;
+		
+		if (isdist<100.0)
+		{												
+			var ctx, texture, canvas = document.createElement('canvas');
+			var radius=0.5*craterd[i];
+	
+			if (radius>200) radius=10;
+	
+			var craterGeometry = new THREE.CylinderGeometry(radius, radius, 0, 6, 1);
+			var craterMesh = new THREE.Mesh(craterGeometry);
+				
+			var axis = new THREE.Vector3(0, 1, 0);
+			craterMesh.quaternion.setFromUnitVectors(axis, position.clone().normalize());
+			craterMesh.position.copy(position.clone().multiplyScalar(1));
+			craterMesh.updateMatrix();
+			totalGeometry.merge(craterMesh.geometry, craterMesh.matrix);
+			console.log('you picked crater',cratername[i],'position',position,'radius',radius);
+			
+			var message=cratername[i],fontsize=20;
+			ctx = canvas.getContext('2d');
+			ctx.font = fontsize + "px Times";
+			// setting canvas width/height before ctx draw, else canvas is empty
+			canvas.width = ctx.measureText(message).width;
+			canvas.height = fontsize * 1.5; // fontsize * 1.5
+			// after setting the canvas width/height we have to re-set font to apply!?! looks like ctx reset
+			ctx.font = fontsize + "px Times";        
+			ctx.fillStyle = "rgba(100,100,255,1)";
+			ctx.fillText(message, 0, fontsize);
+	
+			texture = new THREE.Texture(canvas);
+			texture.minFilter = THREE.LinearFilter; // NearestFilter;
+			texture.needsUpdate = true;
+	
+			var spriteMaterial = new THREE.SpriteMaterial({map : texture});
+			var sprite = new THREE.Sprite( spriteMaterial );
+			sprite.position.set(position.x,position.y,position.z);
+			sprite.scale.set(40, 40, 1);
+			group.add(sprite);
+		}
+	}
+	var craterMeshAll = new THREE.Mesh(totalGeometry, material);
+
+	scene.add(group);		
+	//scene.add( craterMeshAll );
+}
 function animate() {
 	//delta = clock.getDelta();
 	requestAnimationFrame( animate );
