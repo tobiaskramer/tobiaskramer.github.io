@@ -166,8 +166,8 @@ function init() {
 //	controls.addEventListener( 'change', render );
 
 	window.addEventListener('change', inputchange );
-	window.addEventListener( 'dblclick', calculateIntersection, false );
-	window.addEventListener( 'touch', calculateIntersectionTouch, false );
+	window.addEventListener('dblclick', calculateIntersection, false );
+	window.addEventListener('touchstart', calculateIntersectionTouch, false );
 	
 	//window.addEventListener('touchstart', function onFirstTouch() {
 	 // TOUCHDEVICE = true;
