@@ -157,9 +157,9 @@ function init() {
 
 	controls.addEventListener( 'change', render );
 	window.addEventListener('change', inputchange );
-	window.addEventListener( 'dbltap', calculateIntersection, false );	
+	window.addEventListener( 'dblclick', calculateIntersection, false );	
 }
-
+		
 function inputchange(event){
 	if (document.getElementById( "obsCompute" ).checked)
 	{
@@ -222,6 +222,8 @@ function onWindowResize() {
 function calculateIntersection( event ) {
 	var ispoint;
 	var mouse = new THREE.Vector2();
+	
+	event.preventDefault();
 	
 	console.log("double click: find intersection");
 	// calculate mouse position in normalized device coordinates
