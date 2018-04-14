@@ -135,7 +135,7 @@ function init() {
 	renderer.setSize( window.innerWidth, window.innerHeight );
 	document.getElementById("WebGL-output").appendChild(renderer.domElement);
 
-	//window.addEventListener( 'resize', onWindowResize, false );
+	window.addEventListener( 'resize', onWindowResize, false );
 				
 	// controls
 	controls = new THREE.OrthographicTrackballControls(camera,renderer.domElement);
@@ -195,12 +195,12 @@ function init() {
 }
 			
 function onWindowResize() {
-	var WIDTH = window.innerWidth;
-	var HEIGHT = window.innerHeight;
-	
-	renderer.setSize(WIDTH, HEIGHT);
-	camera.aspect = WIDTH / HEIGHT;
-	camera.updateProjectionMatrix();
+	renderer.setSize(window.innerWidth,window.innerHeight);
+	camera.left = -2000*window.innerWidth / window.innerHeight;
+        camera.right = 2000*window.innerWidth / window.innerHeight;
+        camera.top = 2000*window.innerWidth / window.innerHeight;
+        camera.bottom = -2000*window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
 }
 
 function calculateIntersection( event ) {
