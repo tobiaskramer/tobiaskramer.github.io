@@ -43,7 +43,6 @@ var camera, scene, renderer, controls,;
 var light;
 var clock = new THREE.Clock(), delta = 0;
 var raycaster = new THREE.Raycaster();
-var mouse = new THREE.Vector2();
 var cameravector = new THREE.Vector3();
 
 var SL,SB,EL,EB,PA;
@@ -206,6 +205,7 @@ function onWindowResize() {
 
 function calculateIntersection( event ) {
 	var ispoint;
+	var mouse = new THREE.Vector2();
 	
 	console.log("double click: find intersection");
 	// calculate mouse position in normalized device coordinates
