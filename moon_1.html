@@ -24,10 +24,13 @@ input[type=number]{
 <script src="http://threejs.org/examples/js/renderers/Projector.js"></script>
 <div>
 <form id="gui" > 	
+<input type="checkbox" name="obsCompute" id="obsCompute" checked="checked"/>
+<input type="date" name="obsDate" id="obsDate"/>
+<input type="number" name="obsHour" id="obsHour"/>:
+<input type="number" name="obsMin" id="obsMin"/>UTC
 <TABLE>
 <col width="150">
 <col width="50">
-<TR><TD>yyyymmdd.hhmm (UT), put 0 to bypass  </TD><TD><input type="number" id="obsg" name="obsg" min="20180324.1830" max="20180324.1830" value="20180324.1830"></TD></TR> 
 <TR><TD>Sub-solar longitude </TD><TD><input type="number" id="solon" name="solon" min="-180" max="360" value="-86.968" size="5"></TD></TR>
 <TR><TD>Sub-solar latitude  </TD><TD><input type="number" id="solat" name="solat" min="-90" max="90" value="-1.179" size="5"></TD></TR>   		
 <TR><TD>Sub-earth longitude </TD><TD><input type="number" id="ealon" name="ealon" min="-180" max="360" value="1.483" size="5"></TD></TR> 
