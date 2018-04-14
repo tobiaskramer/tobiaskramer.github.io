@@ -198,8 +198,8 @@ function onWindowResize() {
 	renderer.setSize(window.innerWidth,window.innerHeight);
 	camera.left = -2000*window.innerWidth / window.innerHeight;
         camera.right = 2000*window.innerWidth / window.innerHeight;
-        camera.top = 2000*window.innerWidth / window.innerHeight;
-        camera.bottom = -2000*window.innerWidth / window.innerHeight;
+        camera.top = 2000;
+        camera.bottom = -2000;
         camera.updateProjectionMatrix();
 }
 
