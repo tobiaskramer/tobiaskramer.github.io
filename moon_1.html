@@ -60,9 +60,17 @@ animate();
 function init() {				
 	scene = new THREE.Scene();
 	
-	document.getElementById( "obsDate" ).valueAsDate = new Date();
-	document.getElementById( "obsHour" ).value=18;
+	document.getElementById( "obsDate" ).value='2018-03-24';
+	document.getElementById( "obsHour" ).value=17;
 	document.getElementById( "obsMin" ).value=30;
+	
+	var days = day2000(2018,03,24,17.5);
+	doCalcs(days);
+	document.getElementById( "solat" ).value=Math.floor(SB+0.5);
+	document.getElementById( "solon" ).value=Math.floor(-SL+0.5);
+	document.getElementById( "ealat" ).value=Math.floor(EB+0.5);
+	document.getElementById( "ealon" ).value=Math.floor(-EL+0.5);
+	document.getElementById( "posan" ).value=Math.floor(PA+0.5);
 
 	var solat = document.getElementById( "solat" ).value/180.0*Math.PI;
 	var solon = document.getElementById( "solon" ).value/180.0*Math.PI;
@@ -157,7 +165,7 @@ function init() {
 
 	controls.addEventListener( 'change', render );
 	window.addEventListener('change', inputchange );
-	window.addEventListener( 'dblclick', calculateIntersection, false );	
+	window.addEventListener( 'dblclick', calculateIntersection, false );
 }
 		
 function inputchange(event){
@@ -185,11 +193,11 @@ function inputchange(event){
 		//console.log('EL:',EL);
 		//console.log('EB:',EB);
 		//console.log('PA:',PA);
-		document.getElementById( "solat" ).value=SB;
-		document.getElementById( "solon" ).value=-SL;
-		document.getElementById( "ealat" ).value=EB;
-		document.getElementById( "ealon" ).value=-EL;
-		document.getElementById( "posan" ).value=PA;
+		document.getElementById( "solat" ).value=Math.floor(SB+0.5);
+		document.getElementById( "solon" ).value=Math.floor(-SL+0.5);
+		document.getElementById( "ealat" ).value=Math.floor(EB+0.5);
+		document.getElementById( "ealon" ).value=Math.floor(-EL+0.5);
+		document.getElementById( "posan" ).value=Math.floor(PA+0.5);
 	}
 	
 	var solat = document.getElementById( "solat" ).value/180.0*Math.PI;
@@ -220,16 +228,29 @@ function onWindowResize() {
 }
 
 function calculateIntersection( event ) {
+	event.preventDefault();
+	
 	var ispoint;
 	var mouse = new THREE.Vector2();
-	
-	event.preventDefault();
 	
 	console.log("double click: find intersection");
 	// calculate mouse position in normalized device coordinates
 	// (-1 to +1) for both components
-	mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-	mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+	var TOUCHDEVICE='false';
+	
+	if (TOUCHDEVICE=='true')
+	{
+		var rect = document.getBoundingClientRect();
+		mouse.x = + ( (event.targetTouches[ 0 ].pageX - rect.left) / rect.width ) * 2 - 1;
+		mouse.y = - ( (event.targetTouches[ 0 ].pageY - rect.top) / rect.height ) * 2 + 1;
+	}
+	else
+	{
+		mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+		mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+	}
+	
 	// update the picking ray with the camera and mouse position
 	raycaster.setFromCamera( mouse, camera );
 
