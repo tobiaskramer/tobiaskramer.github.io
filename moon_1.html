@@ -169,11 +169,10 @@ function init() {
 	window.addEventListener( 'dblclick', calculateIntersection, false );
 	window.addEventListener( 'touch', calculateIntersectionTouch, false );
 	
-	window.addEventListener('touchstart', function onFirstTouch() {
-	  TOUCHDEVICE = true;
-	  window.removeEventListener('touchstart', onFirstTouch, false);
-	}, false);
-
+	//window.addEventListener('touchstart', function onFirstTouch() {
+	 // TOUCHDEVICE = true;
+	  //window.removeEventListener('touchstart', onFirstTouch, false);
+	//}, false);
 }
 		
 function inputchange(event){
@@ -241,7 +240,6 @@ function calculateIntersection( event ) {
 	var ispoint;
 	var mouse = new THREE.Vector2();
 	
-	console.log("calculateIntersection, with touchdevice:",TOUCHDEVICE);
 	// calculate mouse position in normalized device coordinates
 	// (-1 to +1) for both components
 
@@ -340,15 +338,11 @@ function calculateIntersectionTouch( event ) {
 	var ispoint;
 	var mouse = new THREE.Vector2();
 	
-	console.log("calculateIntersection, with touchdevice:",TOUCHDEVICE);
-	// calculate mouse position in normalized device coordinates
-	// (-1 to +1) for both components
-
 	var rect = document.getBoundingClientRect();
 	mouse.x = + ( (event.targetTouches[ 0 ].pageX - rect.left) / rect.width ) * 2 - 1;
 	mouse.y = - ( (event.targetTouches[ 0 ].pageY - rect.top) / rect.height ) * 2 + 1;
 
-	console.log("calculateIntersection, with touchdevice:",TOUCHDEVICE,"and mouse:",mouse);
+	console.log("calculateIntersectionTouch, with touchdevice:",TOUCHDEVICE,"and mouse:",mouse);
 	
 	// update the picking ray with the camera and mouse position
 	raycaster.setFromCamera( mouse, camera );
