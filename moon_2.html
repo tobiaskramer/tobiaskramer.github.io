@@ -165,81 +165,31 @@ function init() {
 	
 	var deltaClickX = 0;
 	var deltaClickY = 0;
-	renderer.domElement.addEventListener('mousedown', clickStart, false );
-	renderer.domElement.addEventListener('mouseup', clickStop, false );
 	
-	renderer.domElement.addEventListener('touchstart', clickStart, false );
+	renderer.domElement.addEventListener('mousedown', mouseDown, false );
+	renderer.domElement.addEventListener('mouseup', mouseUp, false );
+	
+	renderer.domElement.addEventListener('touchstart', touchStart, false );
 	renderer.domElement.addEventListener('touchmove', touchMove, false );
-	renderer.domElement.addEventListener('touchend', clickStop, false );
-	
-	// function: click into 3d space
-	function clickStart (event){
-		event.preventDefault();
-		event.stopPropagation();
-		var clickX = (event.touches == undefined) ? event.clientX : event.changedTouches[0].clientX;
-		var clickY = (event.touches == undefined) ? event.clientY : event.changedTouches[0].clientY;
-		console.log('clickStart',clickX,clickY,'length:',event.touches.length);
-	   deltaClickX = clickX;
-	   deltaClickY = clickY;
-		if (event.touches == undefined)
-		{
-		}
-		else if (event.touches.length > 1)
-		{
-			var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
-			var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
-			touchZoomDistanceEnd = touchZoomDistanceStart = Math.sqrt( dx * dx + dy * dy );		
-		}
-	}
+	renderer.domElement.addEventListener('touchend', touchEnd, false );
 
-	function touchMove( event ) {
+	function mouseDown (event){
 		event.preventDefault();
 		event.stopPropagation();
-		console.log('touchMove','length:',event.length);
-		switch ( event.touches.length ) {
-			case 1:
-				break;
-			default: // 2 or more
-				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
-				var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
-				touchZoomDistanceEnd = Math.sqrt( dx * dx + dy * dy );
-//				var x = ( event.touches[ 0 ].pageX + event.touches[ 1 ].pageX ) / 2;
-//				var y = ( event.touches[ 0 ].pageY + event.touches[ 1 ].pageY ) / 2;
-				break;
-		}
+		deltaClickX = event.clientX;
+		deltaClickY = event.clientY;
 	}
 	
-	function clickStop (event){
+	function mouseUp (event){
 		event.preventDefault();
 		event.stopPropagation();
-		var clickX = (event.touches == undefined) ? event.clientX : event.changedTouches[0].clientX;
-		var clickY = (event.touches == undefined) ? event.clientY : event.changedTouches[0].clientY;
-		console.log('clickStop',clickX,clickY,'length:',event.touches.length);
+		var clickX = event.clientX;
+		var clickY = event.clientY;
 	   
 		deltaClickX=clickX-deltaClickX;
 		deltaClickY=clickY-deltaClickY;
 		var deltaClick = Math.abs(deltaClickX)+Math.abs(deltaClickY);
-		
-		var zoomfactor=1.0;
-		
-		if (Math.abs(touchZoomDistanceEnd - touchZoomDistanceStart)>10)
-		{
-			zoomfactor=1.0+(touchZoomDistanceEnd - touchZoomDistanceStart)/window.innerWidth;
-			touchZoomDistanceEnd = touchZoomDistanceStart;
-		   if (zoomfactor<0.2)
-				zoomfactor=0.2;
-		   if (zoomfactor>5.0)
-				zoomfactor=5.0;
-			cameraW=cameraW*zoomfactor;
-			console.log("zoomfactor:",zoomfactor,'cameraW:',cameraW);
-		}
-		
-		if (event.touches.length>1)
-		{
-			deltaClickX=0;
-			deltaClickY=0;
-		}
-		
+
 		if (deltaClick < 10)
 		{
 			var mouse = new THREE.Vector2();
@@ -284,6 +234,125 @@ function init() {
 		}
 	 	deltaClickX = 0;
 		deltaClickY = 0;
+	}
+	
+	function touchStart (event){
+		event.preventDefault();
+		event.stopPropagation();
+		
+		switch ( event.touches.length ) {
+			case 1:
+				deltaClickX = event.changedTouches[0].clientX;
+				deltaClickY = event.changedTouches[0].clientY;
+				break;
+			default: // 2 or more
+				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
+				var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
+				touchZoomDistanceEnd = touchZoomDistanceStart = Math.sqrt( dx * dx + dy * dy );				
+		}
+	}
+
+	function touchMove( event ) {
+		event.preventDefault();
+		event.stopPropagation();
+
+		switch ( event.touches.length ) {
+			case 1:
+				break;
+			default: // 2 or more
+				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
+				var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
+				touchZoomDistanceEnd = Math.sqrt( dx * dx + dy * dy );
+				deltaClickX = ( event.touches[ 0 ].pageX + event.touches[ 1 ].pageX ) / 2;
+				deltaClickY = ( event.touches[ 0 ].pageY + event.touches[ 1 ].pageY ) / 2;
+				break;
+		}
+	}
+	
+	function touchEnd (event){
+		event.preventDefault();
+		event.stopPropagation();
+		var clickX,clickY;
+		
+		switch ( event.touches.length ) {
+			case 1:
+				clickX = event.changedTouches[0].clientX;
+				clickY = event.changedTouches[0].clientY;
+				break;
+			default: // 2 or more
+				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
+				var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
+				touchZoomDistanceEnd = Math.sqrt( dx * dx + dy * dy );
+				clickX = ( event.touches[ 0 ].pageX + event.touches[ 1 ].pageX ) / 2;
+				clickY = ( event.touches[ 0 ].pageY + event.touches[ 1 ].pageY ) / 2;
+				break;
+		}	
+		console.log("touchEnd at:",clickX,clickY,'length:',event.touches.length,"touchZoomDistanceStart:",touchZoomDistanceStart,"touchZoomDistanceEnd:",touchZoomDistanceEnd);
+	   
+		deltaClickX=clickX-deltaClickX;
+		deltaClickY=clickY-deltaClickY;
+		
+		var deltaClick = Math.abs(deltaClickX)+Math.abs(deltaClickY);
+		
+		var zoomfactor=1.0;
+		
+		if (Math.abs(touchZoomDistanceEnd - touchZoomDistanceStart)>10)
+		{
+			zoomfactor=1.0+(touchZoomDistanceEnd - touchZoomDistanceStart)/window.innerWidth;
+			touchZoomDistanceEnd = touchZoomDistanceStart;
+		   if (zoomfactor<0.2)
+				zoomfactor=0.2;
+		   if (zoomfactor>5.0)
+				zoomfactor=5.0;
+			cameraW=cameraW*zoomfactor;
+			console.log("zoomfactor:",zoomfactor,'cameraW:',cameraW);
+		}
+		else if (deltaClick < 10)
+		{
+			var mouse = new THREE.Vector2();
+			// calculate mouse position in normalized device coordinates
+			// (-1 to +1) for both components
+			mouse.x = ( clickX / window.innerWidth ) * 2 - 1;
+			mouse.y = - ( clickY / window.innerHeight ) * 2 + 1;
+			console.log("calculateIntersection calling with mouse:",mouse);
+			calculateIntersection(mouse);
+		}
+		
+		if (deltaClick > 10)
+		{
+			var ealat = document.getElementById( "ealat" ).value/180.0*Math.PI;
+			var ealon = document.getElementById( "ealon" ).value/180.0*Math.PI;
+			
+			cameraX=cameraX-5.0*deltaClickX;
+			cameraY=cameraY+5.0*deltaClickY;
+				
+			if (cameraX>2000.0)
+				cameraX=0.0;
+			if (cameraX<-2000.0)
+				cameraX=0.0;
+			if (cameraY>2000.0)
+				cameraY=0.0;
+			if (cameraY<-2000.0)
+				cameraY=0.0;
+			
+			camera.left = cameraX-cameraW*window.innerWidth / window.innerHeight;
+			camera.right= cameraX+cameraW*window.innerWidth / window.innerHeight;
+		   camera.top = cameraY+cameraW;
+			camera.bottom = cameraY-cameraW;
+
+			camera.position.z = 2000*Math.cos(-ealon)*Math.cos(ealat);
+			camera.position.x = cameraX-2000*Math.sin(-ealon)*Math.cos(ealat);
+			camera.position.y = cameraY-2000*Math.sin(ealat);
+			
+			camera.lookAt(new THREE.Vector3(cameraX,cameraY,0));
+			
+			camera.updateProjectionMatrix();
+			
+			console.log("delta",deltaClickX,deltaClickY,"new camera [x,y,w]=",cameraX,cameraY,cameraW);			
+		}
+	 	deltaClickX = 0;
+		deltaClickY = 0;
+		touchZoomDistanceEnd = touchZoomDistanceStart = 0;
 	}
 }
 		
