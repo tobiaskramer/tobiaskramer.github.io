@@ -352,9 +352,7 @@ function init() {
 			camera.position.y = cameraY-2000*Math.sin(ealat);
 			
 			camera.lookAt(new THREE.Vector3(cameraX,cameraY,0));
-			
-			camera.updateProjectionMatrix();
-			
+						
 			console.log("deltaClick [X,Y]:",deltaClickX,deltaClickY,"new camera [X,Y,W]:",cameraX,cameraY,cameraW);			
 		}
 	 	deltaClickX = 0;
