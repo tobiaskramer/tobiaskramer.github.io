@@ -242,8 +242,8 @@ function init() {
 		
 		switch ( event.touches.length ) {
 			case 1:
-				deltaClickX = event.changedTouches[0].clientX;
-				deltaClickY = event.changedTouches[0].clientY;
+				deltaClickX = event.touches[0].clientX;
+				deltaClickY = event.touches[0].clientY;
 				break;
 			default: // 2 or more
 				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
@@ -276,8 +276,8 @@ function init() {
 		
 		switch ( event.touches.length ) {
 			case 1:
-				clickX = event.changedTouches[0].clientX;
-				clickY = event.changedTouches[0].clientY;
+				clickX = event.touches[0].clientX;
+				clickY = event.touches[0].clientY;
 				break;
 			default: // 2 or more
 				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
