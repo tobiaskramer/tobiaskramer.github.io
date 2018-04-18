@@ -230,7 +230,8 @@ function init() {
 		   if (zoomfactor<0.2)
 				zoomfactor=0.2;
 		   if (zoomfactor>5.0)
-				zoomfactor=5.0;			
+				zoomfactor=5.0;
+			cameraW=cameraW*zoomfactor;
 		}
 		
 		if (event.touches.length>1)
