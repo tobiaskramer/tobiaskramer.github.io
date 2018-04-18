@@ -190,7 +190,7 @@ function init() {
 		}
 	}
 
-	function touchmove( event ) {
+	function touchMove( event ) {
 		event.preventDefault();
 		event.stopPropagation();
 		switch ( event.touches.length ) {
@@ -264,6 +264,8 @@ function init() {
 			camera.position.y = cameraY-2000*Math.sin(ealat);
 			
 			camera.lookAt(new THREE.Vector3(cameraX,cameraY,0));
+			
+			camera.updateProjectionMatrix();
 			
 			console.log("delta",deltaClickX,deltaClickY,"new camera [x,y,w]=",cameraX,cameraY,cameraW);			
 		}
