@@ -233,6 +233,12 @@ function init() {
 				zoomfactor=5.0;			
 		}
 		
+		if (event.touches.length>1)
+		{
+			deltaClickX=0;
+			deltaClickY=0;
+		}
+		
 		if (deltaClick < 10)
 		{
 			var mouse = new THREE.Vector2();
