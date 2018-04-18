@@ -178,7 +178,7 @@ function init() {
 		event.stopPropagation();
 		var clickX = (event.touches == undefined) ? event.clientX : event.changedTouches[0].clientX;
 		var clickY = (event.touches == undefined) ? event.clientY : event.changedTouches[0].clientY;
-		console.log('clickStart',clickX,clickY,'length:',event.length);
+		console.log('clickStart',clickX,clickY,'length:',event.touches.length);
 	   deltaClickX = clickX;
 	   deltaClickY = clickY;
 		if (event.touches == undefined)
@@ -214,7 +214,7 @@ function init() {
 		event.stopPropagation();
 		var clickX = (event.touches == undefined) ? event.clientX : event.changedTouches[0].clientX;
 		var clickY = (event.touches == undefined) ? event.clientY : event.changedTouches[0].clientY;
-		console.log('clickStop',clickX,clickY,'length:',event.length);
+		console.log('clickStop',clickX,clickY,'length:',event.touches.length);
 	   
 		deltaClickX=clickX-deltaClickX;
 		deltaClickY=clickY-deltaClickY;
@@ -226,12 +226,12 @@ function init() {
 		{
 			zoomfactor=1.0+(touchZoomDistanceEnd - touchZoomDistanceStart)/window.innerWidth;
 			touchZoomDistanceEnd = touchZoomDistanceStart;
-			console.log("zoomfactor:",zoomfactor);
 		   if (zoomfactor<0.2)
 				zoomfactor=0.2;
 		   if (zoomfactor>5.0)
 				zoomfactor=5.0;
 			cameraW=cameraW*zoomfactor;
+			console.log("zoomfactor:",zoomfactor,'cameraW:',cameraW);
 		}
 		
 		if (event.touches.length>1)
