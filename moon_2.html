@@ -163,8 +163,10 @@ function init() {
 	for(i=0;i<10000;i++) 
 		crateron[i]=0;
 	
-	var deltaClickX = 0;
-	var deltaClickY = 0;
+	var ClickXStart = 0;
+	var ClickYStart = 0;
+	var ClickXEnd = 0;
+	var ClickYEnd = 0;
 	
 	renderer.domElement.addEventListener('mousedown', mouseDown, false );
 	renderer.domElement.addEventListener('mouseup', mouseUp, false );
@@ -176,18 +178,20 @@ function init() {
 	function mouseDown (event){
 		event.preventDefault();
 		event.stopPropagation();
-		deltaClickX = event.clientX;
-		deltaClickY = event.clientY;
+		ClickXStart = event.clientX;
+		ClickYStart = event.clientY;
 	}
 	
 	function mouseUp (event){
 		event.preventDefault();
 		event.stopPropagation();
-		var clickX = event.clientX;
-		var clickY = event.clientY;
 	   
-		deltaClickX=clickX-deltaClickX;
-		deltaClickY=clickY-deltaClickY;
+		ClickXEnd = event.clientX;
+		ClickYEnd = event.clientY;
+		
+		deltaClickX=ClickXEnd-ClickXStart;
+		deltaClickY=ClickYEnd-ClickYStart;
+		
 		var deltaClick = Math.abs(deltaClickX)+Math.abs(deltaClickY);
 
 		if (deltaClick < 10)
@@ -195,8 +199,8 @@ function init() {
 			var mouse = new THREE.Vector2();
 			// calculate mouse position in normalized device coordinates
 			// (-1 to +1) for both components
-			mouse.x = ( clickX / window.innerWidth ) * 2 - 1;
-			mouse.y = - ( clickY / window.innerHeight ) * 2 + 1;
+			mouse.x =   ( ClickXStart / window.innerWidth ) * 2 - 1;
+			mouse.y = - ( ClickYStart / window.innerHeight ) * 2 + 1;
 			console.log("calculateIntersection calling with mouse:",mouse);
 			calculateIntersection(mouse);
 		}
@@ -232,8 +236,8 @@ function init() {
 			
 			console.log("delta",deltaClickX,deltaClickY,"new camera [x,y,w]=",cameraX,cameraY,cameraW);			
 		}
-	 	deltaClickX = 0;
-		deltaClickY = 0;
+	 	ClickXStart = ClickXEnd = 0;
+	 	ClickYStart = ClickYEnd = 0;
 	}
 	
 	function touchStart (event){
@@ -242,8 +246,8 @@ function init() {
 		
 		switch ( event.touches.length ) {
 			case 1:
-				deltaClickX = event.touches[0].clientX;
-				deltaClickY = event.touches[0].clientY;
+				ClickXEnd = ClickXStart = event.touches[0].clientX;
+				ClickYEnd = ClickYStart = event.touches[0].clientY;
 				break;
 			default: // 2 or more
 				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
@@ -258,39 +262,29 @@ function init() {
 
 		switch ( event.touches.length ) {
 			case 1:
+				ClickXEnd = event.touches[0].clientX;
+				ClickYEnd = event.touches[0].clientY;
 				break;
 			default: // 2 or more
 				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
 				var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
 				touchZoomDistanceEnd = Math.sqrt( dx * dx + dy * dy );
-				deltaClickX = ( event.touches[ 0 ].pageX + event.touches[ 1 ].pageX ) / 2;
-				deltaClickY = ( event.touches[ 0 ].pageY + event.touches[ 1 ].pageY ) / 2;
+				
+				ClickXEnd = ( event.touches[ 0 ].pageX + event.touches[ 1 ].pageX ) / 2;
+				ClickYEnd = ( event.touches[ 0 ].pageY + event.touches[ 1 ].pageY ) / 2;
 				break;
 		}
 	}
 	
-	function touchEnd (event){
+	function touchEnd( event ) {
 		event.preventDefault();
 		event.stopPropagation();
 		var clickX,clickY;
 		
-		switch ( event.touches.length ) {
-			case 1:
-				clickX = event.touches[0].pageX;
-				clickY = event.touches[0].pageY;
-				break;
-			default: // 2 or more
-				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
-				var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
-				touchZoomDistanceEnd = Math.sqrt( dx * dx + dy * dy );
-				clickX = ( event.touches[ 0 ].pageX + event.touches[ 1 ].pageX ) / 2;
-				clickY = ( event.touches[ 0 ].pageY + event.touches[ 1 ].pageY ) / 2;
-				break;
-		}	
 		console.log("touchEnd at:",clickX,clickY,'length:',event.touches.length,"touchZoomDistanceStart:",touchZoomDistanceStart,"touchZoomDistanceEnd:",touchZoomDistanceEnd);
-	   
-		deltaClickX=clickX-deltaClickX;
-		deltaClickY=clickY-deltaClickY;
+
+		deltaClickX=ClickXEnd-ClickXStart;
+		deltaClickY=ClickYEnd-ClickYStart;
 		
 		var deltaClick = Math.abs(deltaClickX)+Math.abs(deltaClickY);
 		
