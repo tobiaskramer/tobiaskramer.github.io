@@ -246,8 +246,8 @@ function init() {
 		
 		switch ( event.touches.length ) {
 			case 1:
-				ClickXEnd = ClickXStart = event.touches[0].clientX;
-				ClickYEnd = ClickYStart = event.touches[0].clientY;
+				ClickXEnd = ClickXStart = event.touches[ 0 ].pageX;
+				ClickYEnd = ClickYStart = event.touches[ 0 ].pageY;
 				break;
 			default: // 2 or more
 				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
