@@ -323,8 +323,8 @@ function init() {
 			var ealat = document.getElementById( "ealat" ).value/180.0*Math.PI;
 			var ealon = document.getElementById( "ealon" ).value/180.0*Math.PI;
 			
-			cameraX=cameraX-deltaClickX*camera.W/500.0;
-			cameraY=cameraY+deltaClickY*camera.W/500.0;
+			cameraX=cameraX-deltaClickX*cameraW/500.0;
+			cameraY=cameraY+deltaClickY*cameraW/500.0;
 				
 			if (cameraX>2000.0)
 				cameraX=0.0;
