@@ -253,6 +253,8 @@ function init() {
 				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
 				var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
 				touchZoomDistanceEnd = touchZoomDistanceStart = Math.sqrt( dx * dx + dy * dy );				
+				ClickXEnd = ClickXStart = ( event.touches[ 0 ].pageX + event.touches[ 1 ].pageX ) / 2;
+				ClickXEnd = ClickYStart = ( event.touches[ 0 ].pageY + event.touches[ 1 ].pageY ) / 2;
 		}
 	}
 
@@ -269,7 +271,6 @@ function init() {
 				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
 				var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
 				touchZoomDistanceEnd = Math.sqrt( dx * dx + dy * dy );
-				
 				ClickXEnd = ( event.touches[ 0 ].pageX + event.touches[ 1 ].pageX ) / 2;
 				ClickYEnd = ( event.touches[ 0 ].pageY + event.touches[ 1 ].pageY ) / 2;
 				break;
@@ -292,6 +293,10 @@ function init() {
 		
 		if (Math.abs(touchZoomDistanceEnd - touchZoomDistanceStart)>10)
 		{
+			// take center of event as new center
+			deltaClickX=0.0;
+			deltaClickY=0.0;
+			
 			zoomfactor=1.0+(touchZoomDistanceEnd - touchZoomDistanceStart)/window.innerWidth;
 			touchZoomDistanceEnd = touchZoomDistanceStart;
 		   if (zoomfactor<0.2)
