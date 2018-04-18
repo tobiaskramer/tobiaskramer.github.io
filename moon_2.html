@@ -30,6 +30,8 @@ input[type=number]{
 <input type="date" name="obsDate" id="obsDate"/>
 <input type="number" name="obsHour" id="obsHour"/>:
 <input type="number" name="obsMin" id="obsMin"/>UTC
+<input type="range" id="cameW" name="cameW" min="100" max="2000" value="2000" size="5"> Zoom
+<input type="range" id="camex" name="camex" min="1" max="10" value="2" size="5"> Exposure
 <TABLE>
 <col width="150">
 <col width="300">
@@ -38,8 +40,6 @@ input[type=number]{
 <TR><TD>Sub-earth longitude </TD><TD><input type="number" id="ealon" name="ealon" min="-180" max="180" value="1.483" size="5"></TD></TR> 
 <TR><TD>Sub-earth latitude  </TD><TD><input type="number" id="ealat" name="ealat" min="-90" max="90" value="4.107" size="5"></TD></TR> 
 <TR><TD>Position angle      </TD><TD><input type="number" id="posan" name="posan" min="-90" max="90" value="3.377" size="5"></TD></TR> 
-<TR><TD>Camera Width   	  </TD><TD><input type="range" id="cameW" name="cameW" min="100" max="2000" value="2000" size="5"></TD></TR> 
-<TR><TD>Camera Exposure     </TD><TD><input type="range" id="camex" name="camex" min="1" max="10" value="2" size="5"></TD></TR> 
 </TABLE>
 Flip:<input type="checkbox" name="obsFlip" id="obsFlip"/>
 Flop:<input type="checkbox" name="obsFlop" id="obsFlop"/>
@@ -52,6 +52,7 @@ var light;
 var clock = new THREE.Clock(), delta = 0;
 var raycaster = new THREE.Raycaster();
 var cameravector = new THREE.Vector3();
+var touchZoomDistanceEnd,touchZoomDistanceStart;
 
 var SL,SB,EL,EB,PA;
 
@@ -166,6 +167,7 @@ function init() {
 	var deltaClickY = 0;
 	renderer.domElement.addEventListener('mousedown', clickStart, false );
 	renderer.domElement.addEventListener('mouseup', clickStop, false );
+	
 	renderer.domElement.addEventListener('touchstart', clickStart, false );
 	renderer.domElement.addEventListener('touchend', clickStop, false );
 	
@@ -176,7 +178,33 @@ function init() {
 //		console.log('clickStart',clickX,clickY);
 	   deltaClickX = clickX;
 	   deltaClickY = clickY;
+		if (event.touches == undefined)
+		{
+		}
+		else if (event.length > 1)
+		{
+			var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
+			var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
+			touchZoomDistanceEnd = touchZoomDistanceStart = Math.sqrt( dx * dx + dy * dy );		
+		}
 	}
+
+	function touchmove( event ) {
+		event.preventDefault();
+		event.stopPropagation();
+		switch ( event.touches.length ) {
+			case 1:
+				break;
+			default: // 2 or more
+				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
+				var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
+				touchZoomDistanceEnd = Math.sqrt( dx * dx + dy * dy );
+//				var x = ( event.touches[ 0 ].pageX + event.touches[ 1 ].pageX ) / 2;
+//				var y = ( event.touches[ 0 ].pageY + event.touches[ 1 ].pageY ) / 2;
+				break;
+		}
+	}
+	
 	function clickStop (event){
 		var clickX = (event.touches == undefined) ? event.clientX : event.changedTouches[0].clientX;
 		var clickY = (event.touches == undefined) ? event.clientY : event.changedTouches[0].clientY;
@@ -184,6 +212,16 @@ function init() {
 		deltaClickX=clickX-deltaClickX;
 		deltaClickY=clickY-deltaClickY;
 		var deltaClick = Math.abs(deltaClickX)+Math.abs(deltaClickY);
+		
+		var zoomfactor=1.0;
+		
+		if (Math.abs(touchZoomDistanceEnd - touchZoomDistanceStart)>10)
+		{
+			zoomfactor=1.0+(touchZoomDistanceEnd - touchZoomDistanceStart)/window.innerWidth;
+			touchZoomDistanceEnd = touchZoomDistanceStart;
+			console.log("zoomfactor:",zoomfactor);
+		}
+		
 		if (deltaClick < 10)
 		{
 			var mouse = new THREE.Vector2();
@@ -201,7 +239,6 @@ function init() {
 			
 			cameraX=cameraX-5.0*deltaClickX;
 			cameraY=cameraY+5.0*deltaClickY;
-			cameraW=2000.0;
 				
 			camera.left = cameraX-cameraW*window.innerWidth / window.innerHeight;
 			camera.right= cameraX+cameraW*window.innerWidth / window.innerHeight;
@@ -296,12 +333,13 @@ function inputchange(event){
 	camera.position.z = 2000*Math.cos(-ealon)*Math.cos(ealat);
 	camera.position.x = cameraX-2000*Math.sin(-ealon)*Math.cos(ealat);
 	camera.position.y = cameraY-2000*Math.sin(ealat);
-	camera.lookAt(new THREE.Vector3(cameraX,cameraY,0));
 	
-	camera.left = cameraX-cameraW*window.innerWidth / window.innerHeight;
-	camera.right= cameraX+cameraW*window.innerWidth / window.innerHeight;
-   camera.top = cameraY+cameraW;
+	camera.left   = cameraX-cameraW*window.innerWidth / window.innerHeight;
+	camera.right  = cameraX+cameraW*window.innerWidth / window.innerHeight;
+   camera.top 	  = cameraY+cameraW;
 	camera.bottom = cameraY-cameraW;
+
+	camera.lookAt(new THREE.Vector3(cameraX,cameraY,0));
 	
 	console.log(camera.projectionMatrix.elements);		
 }
