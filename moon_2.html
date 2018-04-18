@@ -133,7 +133,7 @@ function init() {
 
 	var loader = new THREE.PLYLoader();
 	// 11760 1142640
-	loader.load( 'moon_11760_topo.ply', function ( geometry ) {
+	loader.load( 'moon_1142640_topo.ply', function ( geometry ) {
 		geometry.computeVertexNormals();
 		//geometry.computeFlatVertexNormals();
 		var material = new THREE.MeshLambertMaterial({color: 0xffffff});
@@ -484,15 +484,15 @@ function calculateIntersection( mouse ) {
 	for ( var i = 0; i < 2717; i++ ) {
 		var position = new THREE.Vector3;
 
-		position.x=craterxyz[i][0]*1.004;
-		position.y=craterxyz[i][1]*1.004;
-		position.z=craterxyz[i][2]*1.004;
+		position.x=craterxyz[i][0]*1.007;
+		position.y=craterxyz[i][1]*1.007;
+		position.z=craterxyz[i][2]*1.007;
 		
 		var isdist=position.sub(ispoint).length(); 
 
-		position.x=craterxyz[i][0]*1.004;
-		position.y=craterxyz[i][1]*1.004;
-		position.z=craterxyz[i][2]*1.004;
+		position.x=craterxyz[i][0]*1.007;
+		position.y=craterxyz[i][1]*1.007;
+		position.z=craterxyz[i][2]*1.007;
 		
 		if (isdist<100.0&&crateron[i]==0)
 		{												
