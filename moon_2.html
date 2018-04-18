@@ -264,8 +264,8 @@ function init() {
 
 		switch ( event.touches.length ) {
 			case 1:
-				ClickXEnd = event.touches[0].clientX;
-				ClickYEnd = event.touches[0].clientY;
+				ClickXEnd = event.touches[ 0 ].pageX;
+				ClickYEnd = event.touches[ 0 ].pageY;
 				break;
 			default: // 2 or more
 				var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
@@ -322,8 +322,8 @@ function init() {
 			var ealat = document.getElementById( "ealat" ).value/180.0*Math.PI;
 			var ealon = document.getElementById( "ealon" ).value/180.0*Math.PI;
 			
-			cameraX=cameraX-deltaClickX*camera.W/400.0;
-			cameraY=cameraY+deltaClickY*camera.W/400.0;
+			cameraX=cameraX-deltaClickX*camera.W/500.0;
+			cameraY=cameraY+deltaClickY*camera.W/500.0;
 				
 			if (cameraX>2000.0)
 				cameraX=0.0;
@@ -333,10 +333,14 @@ function init() {
 				cameraY=0.0;
 			if (cameraY<-2000.0)
 				cameraY=0.0;
+			if (cameraW<10.0)
+				cameraW=2000.0;
+			if (cameraW>10000.0)
+				cameraW=2000.0;
 			
-			camera.left = cameraX-cameraW*window.innerWidth / window.innerHeight;
-			camera.right= cameraX+cameraW*window.innerWidth / window.innerHeight;
-		   camera.top = cameraY+cameraW;
+			camera.left   = cameraX-cameraW*window.innerWidth / window.innerHeight;
+			camera.right  = cameraX+cameraW*window.innerWidth / window.innerHeight;
+		   camera.top	  = cameraY+cameraW;
 			camera.bottom = cameraY-cameraW;
 
 			camera.position.z = 2000*Math.cos(-ealon)*Math.cos(ealat);
