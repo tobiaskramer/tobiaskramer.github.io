@@ -174,9 +174,11 @@ function init() {
 	
 	// function: click into 3d space
 	function clickStart (event){
+		event.preventDefault();
+		event.stopPropagation();
 		var clickX = (event.touches == undefined) ? event.clientX : event.changedTouches[0].clientX;
 		var clickY = (event.touches == undefined) ? event.clientY : event.changedTouches[0].clientY;
-//		console.log('clickStart',clickX,clickY);
+		console.log('clickStart',clickX,clickY,'length:',event.length);
 	   deltaClickX = clickX;
 	   deltaClickY = clickY;
 		if (event.touches == undefined)
@@ -207,9 +209,12 @@ function init() {
 	}
 	
 	function clickStop (event){
+		event.preventDefault();
+		event.stopPropagation();
 		var clickX = (event.touches == undefined) ? event.clientX : event.changedTouches[0].clientX;
 		var clickY = (event.touches == undefined) ? event.clientY : event.changedTouches[0].clientY;
-//		console.log('clickStop',clickX,clickY);
+		console.log('clickStop',clickX,clickY,'length:',event.length);
+	   
 		deltaClickX=clickX-deltaClickX;
 		deltaClickY=clickY-deltaClickY;
 		var deltaClick = Math.abs(deltaClickX)+Math.abs(deltaClickY);
