@@ -282,7 +282,7 @@ function init() {
 		event.stopPropagation();
 		var clickX,clickY;
 		
-		console.log("touchEnd at:",clickX,clickY,'length:',event.touches.length,"touchZoomDistanceStart:",touchZoomDistanceStart,"touchZoomDistanceEnd:",touchZoomDistanceEnd);
+		console.log("touchEnd at:",ClickXStart,ClickYStart,ClickXEnd,ClickYEnd);
 
 		deltaClickX=ClickXEnd-ClickXStart;
 		deltaClickY=ClickYEnd-ClickYStart;
