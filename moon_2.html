@@ -132,8 +132,8 @@ function init() {
 	};
 
 	var loader = new THREE.PLYLoader();
-				
-	loader.load( 'moon_1142640_topo.ply', function ( geometry ) {
+	// 11760 1142640
+	loader.load( 'moon_11760_topo.ply', function ( geometry ) {
 		geometry.computeVertexNormals();
 		//geometry.computeFlatVertexNormals();
 		var material = new THREE.MeshLambertMaterial({color: 0xffffff});
