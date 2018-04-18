@@ -303,6 +303,9 @@ function init() {
 		   if (zoomfactor>5.0)
 				zoomfactor=5.0;
 			cameraW=cameraW*zoomfactor;
+			deltaClickX=0.0; // disable movement
+			deltaClickY=0.0; // disable movement
+			
 			console.log("zoomfactor:",zoomfactor,'cameraW:',cameraW);
 		}
 		else if (deltaClick < 10)
