@@ -280,7 +280,6 @@ function init() {
 	function touchEnd( event ) {
 		event.preventDefault();
 		event.stopPropagation();
-		var clickX,clickY;
 		
 		console.log("touchEnd at:",ClickXStart,ClickYStart,ClickXEnd,ClickYEnd);
 
@@ -311,8 +310,8 @@ function init() {
 			var mouse = new THREE.Vector2();
 			// calculate mouse position in normalized device coordinates
 			// (-1 to +1) for both components
-			mouse.x = ( clickX / window.innerWidth ) * 2 - 1;
-			mouse.y = - ( clickY / window.innerHeight ) * 2 + 1;
+			mouse.x =   ( ClickXStart / window.innerWidth ) * 2 - 1;
+			mouse.y = - ( ClickYStart / window.innerHeight ) * 2 + 1;
 			console.log("calculateIntersection calling with mouse:",mouse);
 			calculateIntersection(mouse);
 		}
@@ -351,10 +350,12 @@ function init() {
 			
 			camera.updateProjectionMatrix();
 			
-			console.log("delta",deltaClickX,deltaClickY,"new camera [x,y,w]=",cameraX,cameraY,cameraW);			
+			console.log("deltaClick [X,Y]:",deltaClickX,deltaClickY,"new camera [X,Y,W]:",cameraX,cameraY,cameraW);			
 		}
 	 	deltaClickX = 0;
 		deltaClickY = 0;
+		
+		ClickXStart=ClickYStart=ClickXEnd=ClickYEnd=0;
 		touchZoomDistanceEnd = touchZoomDistanceStart = 0;
 	}
 }
