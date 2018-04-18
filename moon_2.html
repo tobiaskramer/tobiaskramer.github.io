@@ -195,6 +195,7 @@ function init() {
 	function touchMove( event ) {
 		event.preventDefault();
 		event.stopPropagation();
+		console.log('touchMove','length:',event.length);
 		switch ( event.touches.length ) {
 			case 1:
 				break;
