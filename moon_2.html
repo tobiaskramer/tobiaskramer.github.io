@@ -169,6 +169,7 @@ function init() {
 	renderer.domElement.addEventListener('mouseup', clickStop, false );
 	
 	renderer.domElement.addEventListener('touchstart', clickStart, false );
+	renderer.domElement.addEventListener('touchmove', touchMove, false );
 	renderer.domElement.addEventListener('touchend', clickStop, false );
 	
 	// function: click into 3d space
@@ -220,6 +221,10 @@ function init() {
 			zoomfactor=1.0+(touchZoomDistanceEnd - touchZoomDistanceStart)/window.innerWidth;
 			touchZoomDistanceEnd = touchZoomDistanceStart;
 			console.log("zoomfactor:",zoomfactor);
+		   if (zoomfactor<0.2)
+				zoomfactor=0.2;
+		   if (zoomfactor>5.0)
+				zoomfactor=5.0;			
 		}
 		
 		if (deltaClick < 10)
@@ -240,6 +245,15 @@ function init() {
 			cameraX=cameraX-5.0*deltaClickX;
 			cameraY=cameraY+5.0*deltaClickY;
 				
+			if (cameraX>2000.0)
+				cameraX=2000.0;
+			if (cameraX<-2000.0)
+				cameraX=-2000.0;
+			if (cameraY>2000.0)
+				cameraY=2000.0;
+			if (cameraY<-2000.0)
+				cameraY=2000.0;
+			
 			camera.left = cameraX-cameraW*window.innerWidth / window.innerHeight;
 			camera.right= cameraX+cameraW*window.innerWidth / window.innerHeight;
 		   camera.top = cameraY+cameraW;
